@@ -21,6 +21,10 @@ export function localDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+export function truncateTaskTitle(title, limit = 50) {
+  return title.length > limit ? `${title.slice(0, limit)}…` : title;
+}
+
 export function normalizeTask(task, today = localDateKey()) {
   const isLegacyTask = !task.status;
   const status = task.completed ? 'completed' : task.status || 'planned';
@@ -32,11 +36,12 @@ export function normalizeTask(task, today = localDateKey()) {
     isUrgent: false,
     origin: 'unclear',
     area: 'Без сферы',
-    estimate: 15,
+    estimate: 0,
     trackedSeconds: 0,
     scheduledDate: isLegacyTask ? today : '',
     dueDate: '',
     parentTaskId: null,
+    projectId: null,
     completedAt: status === 'completed' ? task.completedAt || task.updatedAt || task.createdAt : null,
     ...task,
     status,
@@ -60,6 +65,40 @@ export function createTask(title, view = 'inbox', today = localDateKey()) {
 
 export function isTaskCompleted(task) {
   return task.status === 'completed' || task.completed;
+}
+
+export function calculateDailyPlannedMinutes(tasks, today = localDateKey()) {
+  const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  const childrenByParentId = new Map();
+
+  tasks.forEach((task) => {
+    if (!task.parentTaskId) return;
+    const children = childrenByParentId.get(task.parentTaskId) || [];
+    children.push(task);
+    childrenByParentId.set(task.parentTaskId, children);
+  });
+
+  const visiting = new Set();
+
+  function rollUp(task) {
+    if (task.status === 'cancelled' || visiting.has(task.id)) return 0;
+
+    visiting.add(task.id);
+    const childrenMinutes = (childrenByParentId.get(task.id) || [])
+      .reduce((total, child) => total + rollUp(child), 0);
+    visiting.delete(task.id);
+
+    const belongsToToday = task.scheduledDate === today || Boolean(task.dueDate && task.dueDate <= today);
+    const ownMinutes = !isTaskCompleted(task) && belongsToToday
+      ? Math.max(0, Number(task.estimate) || 0)
+      : 0;
+
+    return Math.max(ownMinutes, childrenMinutes);
+  }
+
+  return tasks
+    .filter((task) => !task.parentTaskId || !tasksById.has(task.parentTaskId))
+    .reduce((total, task) => total + rollUp(task), 0);
 }
 
 export function taskMatchesView(task, view, filter = 'active', today = localDateKey()) {

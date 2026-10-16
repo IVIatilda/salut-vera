@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { isTaskCompleted, localDateKey, sortTasks, taskMatchesView } from './task-model.js';
+import { isTaskCompleted, localDateKey, sortTasks, taskMatchesView } from '../model/task-model.js';
 
 const FILTERS = [
   ['active', 'Все'],
@@ -31,14 +31,25 @@ function CheckIcon() {
   );
 }
 
-function TaskRow({ task, children, onOpen, onToggle, nested = false }) {
+function TaskRow({
+  task,
+  project,
+  children,
+  hasSubtasks,
+  isExpanded,
+  onOpen,
+  onToggle,
+  onToggleExpanded,
+  nested = false,
+}) {
   const completed = isTaskCompleted(task);
   const today = localDateKey();
   const overdue = !completed && task.dueDate && task.dueDate < today;
+  const subtaskListId = `subtasks-${task.id}`;
 
   return (
     <div className={`task-entry ${nested ? 'nested' : ''}`}>
-      <article className={`task-row expanded ${completed ? 'completed' : ''}`}>
+      <article className={`task-row ${completed ? 'completed' : ''}`}>
         <button
           className="task-check"
           type="button"
@@ -47,21 +58,33 @@ function TaskRow({ task, children, onOpen, onToggle, nested = false }) {
         >
           {completed && <CheckIcon />}
         </button>
-        <button className="task-open" type="button" onClick={() => onOpen(task)}>
-          <strong>{task.title}</strong>
+        <div className="task-content">
+          <button className="task-title" type="button" onClick={() => onOpen(task)}>
+            <strong>{task.title}</strong>
+          </button>
           <span className="task-meta">
             {task.isUrgent && <i className="task-tag urgent">Срочно</i>}
             {task.importance === 'high' && <i className="task-tag important">Важно</i>}
+            {project && <i className="task-project">{project.title}</i>}
             {task.area && task.area !== 'Без сферы' && <i>{task.area}</i>}
             {task.scheduledDate && <i>{formatShortDate(task.scheduledDate)}</i>}
             {task.dueDate && <i className={overdue ? 'overdue' : ''}>до {formatShortDate(task.dueDate)}</i>}
             {task.estimate > 0 && <i>{task.estimate} мин</i>}
             {task.trackedSeconds > 0 && <i>{formatTrackedTime(task.trackedSeconds)} в фокусе</i>}
           </span>
-        </button>
-        <button className="task-chevron" type="button" onClick={() => onOpen(task)} aria-label={`Открыть задачу «${task.title}»`}>
-          ›
-        </button>
+        </div>
+        {hasSubtasks && (
+          <button
+            className={`task-chevron ${isExpanded ? 'expanded' : ''}`}
+            type="button"
+            onClick={() => onToggleExpanded(task.id)}
+            aria-label={isExpanded ? `Свернуть подзадачи «${task.title}»` : `Развернуть подзадачи «${task.title}»`}
+            aria-expanded={isExpanded}
+            aria-controls={subtaskListId}
+          >
+            <span aria-hidden="true">›</span>
+          </button>
+        )}
       </article>
       {children}
     </div>
@@ -70,6 +93,7 @@ function TaskRow({ task, children, onOpen, onToggle, nested = false }) {
 
 export default function TaskList({
   tasks,
+  projects,
   view,
   filter,
   onFilterChange,
@@ -79,6 +103,7 @@ export default function TaskList({
   isLoading,
 }) {
   const [title, setTitle] = useState('');
+  const [expandedTaskIds, setExpandedTaskIds] = useState(() => new Set());
   const roots = sortTasks(tasks.filter((task) => taskMatchesView(task, view, filter)));
 
   function submitTask(event) {
@@ -89,26 +114,34 @@ export default function TaskList({
     setTitle('');
   }
 
-  function renderTask(task) {
+  function toggleSubtasks(taskId) {
+    setExpandedTaskIds((current) => {
+      const next = new Set(current);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }
+
+  function renderTask(task, nested = false) {
     const subtasks = sortTasks(tasks.filter((item) => item.parentTaskId === task.id && item.status !== 'cancelled'));
+    const hasSubtasks = subtasks.length > 0;
+    const isExpanded = expandedTaskIds.has(task.id);
     return (
       <TaskRow
         key={task.id}
         task={task}
+        project={projects.find((project) => project.id === task.projectId)}
+        hasSubtasks={hasSubtasks}
+        isExpanded={isExpanded}
+        nested={nested}
         onOpen={onOpen}
         onToggle={onToggle}
+        onToggleExpanded={toggleSubtasks}
       >
-        {subtasks.length > 0 && (
-          <div className="subtask-list">
-            {subtasks.map((subtask) => (
-              <TaskRow
-                key={subtask.id}
-                task={subtask}
-                nested
-                onOpen={onOpen}
-                onToggle={onToggle}
-              />
-            ))}
+        {hasSubtasks && (
+          <div className="subtask-list" id={`subtasks-${task.id}`} hidden={!isExpanded}>
+            {subtasks.map((subtask) => renderTask(subtask, true))}
           </div>
         )}
       </TaskRow>
@@ -139,16 +172,15 @@ export default function TaskList({
       )}
 
       <form className="quick-add" onSubmit={submitTask}>
-        <span className="quick-add-plus" aria-hidden="true">+</span>
         <label className="sr-only" htmlFor={`new-task-${view}`}>Новая задача</label>
         <input
           id={`new-task-${view}`}
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder={view === 'inbox' ? 'Что сейчас держите в голове?' : 'Новая задача'}
+          placeholder={'Быстрое добавление задачи'}
           autoComplete="off"
         />
-        <button type="submit">Добавить</button>
+        <button type="submit">+</button>
       </form>
 
       <div className="task-list" aria-live="polite">

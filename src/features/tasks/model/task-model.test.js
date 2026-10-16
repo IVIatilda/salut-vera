@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createTask, normalizeTask, taskMatchesView } from './task-model.js';
+import {
+  calculateDailyPlannedMinutes,
+  createTask,
+  normalizeTask,
+  taskMatchesView,
+  truncateTaskTitle,
+} from './task-model.js';
 
 describe('task model', () => {
   it('places a quick task from Today into today plan', () => {
@@ -8,6 +14,7 @@ describe('task model', () => {
       title: 'Позвонить врачу',
       status: 'planned',
       scheduledDate: '2026-10-16',
+      estimate: 0,
     });
   });
 
@@ -52,5 +59,35 @@ describe('task model', () => {
     expect(taskMatchesView(completed, 'tasks', 'completed', '2026-10-16')).toBe(true);
     expect(taskMatchesView(undated, 'tasks', 'no_date', '2026-10-16')).toBe(true);
     expect(taskMatchesView(completed, 'tasks', 'no_date', '2026-10-16')).toBe(false);
+  });
+
+  it('truncates a parent title only after 50 characters', () => {
+    const exactTitle = 'а'.repeat(50);
+    const longTitle = 'б'.repeat(51);
+
+    expect(truncateTaskTitle(exactTitle)).toBe(exactTitle);
+    expect(truncateTaskTitle(longTitle)).toBe(`${'б'.repeat(50)}…`);
+  });
+
+  it('includes active subtask estimates when the parent has no estimate', () => {
+    const tasks = [
+      { id: 'walk', status: 'planned', scheduledDate: '2026-10-16', estimate: 30 },
+      { id: 'parent', status: 'completed', scheduledDate: '2026-10-16', estimate: 0 },
+      { id: 'child-1', parentTaskId: 'parent', status: 'planned', scheduledDate: '2026-10-16', estimate: 20 },
+      { id: 'child-2', parentTaskId: 'parent', status: 'planned', scheduledDate: '2026-10-16', estimate: 20 },
+      { id: 'child-done', parentTaskId: 'parent', status: 'completed', scheduledDate: '2026-10-16', estimate: 15 },
+    ];
+
+    expect(calculateDailyPlannedMinutes(tasks, '2026-10-16')).toBe(70);
+  });
+
+  it('does not double-count a parent estimate and its decomposition', () => {
+    const tasks = [
+      { id: 'parent', status: 'planned', scheduledDate: '2026-10-16', estimate: 60 },
+      { id: 'child-1', parentTaskId: 'parent', status: 'planned', scheduledDate: '2026-10-16', estimate: 20 },
+      { id: 'child-2', parentTaskId: 'parent', status: 'planned', scheduledDate: '2026-10-16', estimate: 20 },
+    ];
+
+    expect(calculateDailyPlannedMinutes(tasks, '2026-10-16')).toBe(60);
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import CustomSelect from './CustomSelect.jsx';
+import CustomSelect from '../../../shared/ui/CustomSelect.jsx';
 import {
   POMODORO_PRESETS,
   createTimerState,
@@ -9,7 +9,7 @@ import {
   getRemainingSeconds,
   moveToNextPhase,
   resetCurrentPhase,
-} from './pomodoro.js';
+} from '../model/pomodoro.js';
 
 const STORAGE_KEY = 'vera-pomodoro-state-v1';
 

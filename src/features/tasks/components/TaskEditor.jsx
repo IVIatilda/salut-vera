@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import CustomSelect from './CustomSelect.jsx';
-import { IMPORTANCE_LEVELS, TASK_STATUSES } from './task-model.js';
+import CustomSelect from '../../../shared/ui/CustomSelect.jsx';
+import { IMPORTANCE_LEVELS, TASK_STATUSES, truncateTaskTitle } from '../model/task-model.js';
 
 const DEFAULT_AREAS = ['Работа', 'Семья', 'Здоровье', 'Дружба', 'Финансы', 'Отдых', 'Творчество'];
 
-export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete, onSave, onAddSubtask }) {
+export default function TaskEditor({ task, tasks, projects, parentTask, isNew = false, onBack, onClose, onOpenTask, onDelete, onSave, onAddSubtask }) {
   const [draft, setDraft] = useState(task);
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -16,6 +16,12 @@ export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete,
     { value: 'Без сферы', label: 'Не выбрана' },
     ...areas.map((area) => ({ value: area, label: area })),
   ], [areas]);
+  const projectOptions = useMemo(() => [
+    { value: '', label: 'Без проекта' },
+    ...projects
+      .filter((project) => project.status !== 'archived' && (project.status !== 'completed' || project.id === task.projectId))
+      .map((project) => ({ value: project.id, label: project.title })),
+  ], [projects, task.projectId]);
   const subtasks = tasks.filter((item) => item.parentTaskId === task.id && item.status !== 'cancelled');
   const isSubtask = Boolean(task.parentTaskId);
 
@@ -35,6 +41,15 @@ export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete,
 
   function update(field, value) {
     setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateProject(projectId) {
+    const project = projects.find((item) => item.id === projectId);
+    setDraft((current) => ({
+      ...current,
+      projectId: projectId || null,
+      area: current.area === 'Без сферы' && project?.area ? project.area : current.area,
+    }));
   }
 
   function submit(event) {
@@ -59,21 +74,32 @@ export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete,
     setSubtaskTitle('');
   }
 
+  function handleSubtaskKeyDown(event) {
+    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+    addSubtask(event);
+  }
+
   return (
     <div className="task-editor-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="task-editor" role="dialog" aria-modal="true" aria-labelledby="task-editor-title">
         <form onSubmit={submit}>
+          {parentTask && (
+            <button className="editor-back" onClick={onBack} title={parentTask.title} type="button">
+              <span className="editor-back-arrow" aria-hidden="true">←</span>
+              <span className="editor-back-label">Вернуться назад к задаче «{truncateTaskTitle(parentTask.title)}»</span>
+            </button>
+          )}
           <div className="task-editor-heading">
             <div>
               <span className="eyebrow">{isSubtask ? 'Подзадача' : 'Задача'}</span>
-              <h2 id="task-editor-title">{draft.title}</h2>
+              <h2 id="task-editor-title">{isNew ? 'Новая задача' : draft.title}</h2>
             </div>
             <button className="editor-close" onClick={onClose} type="button" aria-label="Закрыть">×</button>
           </div>
 
           <label className="editor-field wide">
             <span>Название</span>
-            <input value={draft.title} onChange={(event) => update('title', event.target.value)} autoFocus />
+            <input value={draft.title} onChange={(event) => update('title', event.target.value)} autoFocus required />
           </label>
 
           <label className="editor-field wide">
@@ -107,6 +133,16 @@ export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete,
               />
             </div>
 
+            <div className="editor-field wide">
+              <span>Проект</span>
+              <CustomSelect
+                value={draft.projectId || ''}
+                options={projectOptions}
+                onChange={updateProject}
+                ariaLabel="Проект"
+              />
+            </div>
+
             <label className="editor-field">
               <span>Запланировать</span>
               <input type="date" value={draft.scheduledDate} onChange={(event) => update('scheduledDate', event.target.value)} />
@@ -129,7 +165,14 @@ export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete,
 
             <label className="editor-field">
               <span>Оценка, минут</span>
-              <input type="number" min="0" max="1440" value={draft.estimate} onChange={(event) => update('estimate', event.target.value)} />
+              <input
+                type="number"
+                min="0"
+                max="1440"
+                value={draft.estimate || ''}
+                onChange={(event) => update('estimate', event.target.value)}
+                placeholder="Не указана"
+              />
             </label>
           </div>
 
@@ -138,14 +181,14 @@ export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete,
             <span>Задача срочная</span>
           </label>
 
-          {!isSubtask && (
+          {!isSubtask && !isNew && (
             <section className="editor-subtasks">
               <div className="editor-subtasks-heading">
                 <strong>Подзадачи</strong>
                 <span>{subtasks.length}</span>
               </div>
               {subtasks.map((subtask) => (
-                <button key={subtask.id} type="button" onClick={() => onOpenTask(subtask)}>
+                <button key={subtask.id} type="button" onClick={() => onOpenTask(subtask, draft)}>
                   <span className={subtask.completed ? 'done' : ''}>{subtask.title}</span>
                   <i>›</i>
                 </button>
@@ -154,6 +197,7 @@ export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete,
                 <input
                   value={subtaskTitle}
                   onChange={(event) => setSubtaskTitle(event.target.value)}
+                  onKeyDown={handleSubtaskKeyDown}
                   placeholder="Добавить подзадачу"
                 />
                 <button onClick={addSubtask} type="button">Добавить</button>
@@ -162,7 +206,9 @@ export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete,
           )}
 
           <div className="task-editor-actions">
-            {confirmDelete ? (
+            {isNew ? (
+              <span className="new-task-hint">Задача появится после сохранения</span>
+            ) : confirmDelete ? (
               <div className="delete-confirmation">
                 <span>Удалить задачу{subtasks.length ? ' и её подзадачи' : ''}?</span>
                 <button className="delete-confirm" onClick={() => onDelete(task)} type="button">Удалить</button>
@@ -173,7 +219,7 @@ export default function TaskEditor({ task, tasks, onClose, onOpenTask, onDelete,
             )}
             <div>
               <button className="editor-cancel" onClick={onClose} type="button">Отмена</button>
-              <button className="editor-save" type="submit">Сохранить</button>
+              <button className="editor-save" type="submit">{isNew ? 'Создать' : 'Сохранить'}</button>
             </div>
           </div>
         </form>

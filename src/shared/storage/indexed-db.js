@@ -1,7 +1,8 @@
 const DB_NAME = 'vera-organizer';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const TASK_STORE = 'tasks';
 const TIME_ENTRY_STORE = 'timeEntries';
+const PROJECT_STORE = 'projects';
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -18,6 +19,12 @@ function openDatabase() {
         const timeEntryStore = database.createObjectStore(TIME_ENTRY_STORE, { keyPath: 'id' });
         timeEntryStore.createIndex('taskId', 'taskId');
         timeEntryStore.createIndex('startedAt', 'startedAt');
+      }
+
+      if (!database.objectStoreNames.contains(PROJECT_STORE)) {
+        const projectStore = database.createObjectStore(PROJECT_STORE, { keyPath: 'id' });
+        projectStore.createIndex('createdAt', 'createdAt');
+        projectStore.createIndex('status', 'status');
       }
     };
 
@@ -61,4 +68,18 @@ export function listTimeEntries() {
 
 export function saveTimeEntry(timeEntry) {
   return runTransaction(TIME_ENTRY_STORE, 'readwrite', (store) => store.put(timeEntry));
+}
+
+export function listProjects() {
+  return runTransaction(PROJECT_STORE, 'readonly', (store) => store.getAll()).then((projects) =>
+    projects.sort((first, second) => first.createdAt.localeCompare(second.createdAt)),
+  );
+}
+
+export function saveProject(project) {
+  return runTransaction(PROJECT_STORE, 'readwrite', (store) => store.put(project));
+}
+
+export function removeProject(projectId) {
+  return runTransaction(PROJECT_STORE, 'readwrite', (store) => store.delete(projectId));
 }
