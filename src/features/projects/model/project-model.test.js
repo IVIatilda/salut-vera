@@ -8,6 +8,7 @@ describe('project model', () => {
       title: 'Запуск приложения',
       status: 'active',
       area: 'Без сферы',
+      roleId: null,
       targetDate: '',
     });
   });

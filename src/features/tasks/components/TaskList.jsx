@@ -63,6 +63,7 @@ function DescendantIndicators({ hasUrgent, hasImportant }) {
 function TaskRow({
   task,
   project,
+  role,
   children,
   hasSubtasks,
   isExpanded,
@@ -76,6 +77,12 @@ function TaskRow({
   const today = localDateKey();
   const overdue = !completed && task.dueDate && task.dueDate < today;
   const subtaskListId = `subtasks-${task.id}`;
+  const ownEstimate = Math.max(0, Number(task.estimate) || 0);
+  const plannedMinutes = ownEstimate || (hasSubtasks ? subtaskSummary.estimatedMinutes : 0);
+  const estimateIsApproximate = ownEstimate === 0 && hasSubtasks && subtaskSummary.isApproximate;
+  const hasCalculatedEstimate = plannedMinutes > 0 || estimateIsApproximate;
+  const hasTrackedTime = task.trackedSeconds > 0;
+  const isOverrun = plannedMinutes > 0 && task.trackedSeconds > plannedMinutes * 60;
 
   return (
     <div className={`task-entry ${nested ? 'nested' : ''}`}>
@@ -100,20 +107,32 @@ function TaskRow({
             {task.isUrgent && <i className="task-tag urgent">Срочно</i>}
             {task.importance === 'high' && <i className="task-tag important">Важно</i>}
             {project && <i className="task-project">{project.title}</i>}
-            {task.area && task.area !== 'Без сферы' && <i>{task.area}</i>}
+            {(role?.title || (task.area && task.area !== 'Без сферы' ? task.area : '')) && (
+              <i>{role?.title || task.area}</i>
+            )}
             {task.scheduledDate && <i>{formatShortDate(task.scheduledDate)}</i>}
             {task.dueDate && <i className={overdue ? 'overdue' : ''}>до {formatShortDate(task.dueDate)}</i>}
-            {task.estimate > 0 && <i>{task.estimate} мин</i>}
-            {task.estimate <= 0 && hasSubtasks && (subtaskSummary.estimatedMinutes > 0 || subtaskSummary.isApproximate) && (
+            {!hasTrackedTime && hasCalculatedEstimate && (
               <i
-                className={subtaskSummary.isApproximate ? 'task-estimate approximate' : 'task-estimate'}
-                title={subtaskSummary.isApproximate ? 'Не у всех незавершённых подзадач указано плановое время' : undefined}
+                className={estimateIsApproximate ? 'task-estimate approximate' : 'task-estimate'}
+                title={estimateIsApproximate ? 'Не у всех подзадач указано плановое время' : undefined}
               >
-                {subtaskSummary.isApproximate && '≈ '}
-                {subtaskSummary.estimatedMinutes > 0 ? `${subtaskSummary.estimatedMinutes} мин` : '? мин'}
+                {estimateIsApproximate && '≈ '}
+                {plannedMinutes > 0 ? `${plannedMinutes} мин` : '? мин'}
               </i>
             )}
-            {task.trackedSeconds > 0 && <i>{formatTrackedTime(task.trackedSeconds)} в фокусе</i>}
+            {hasTrackedTime && hasCalculatedEstimate && (
+              <i
+                className={`task-time-ratio ${isOverrun ? 'overrun' : ''}`}
+                title={`${formatTrackedTime(task.trackedSeconds)} затрачено из ${estimateIsApproximate ? 'примерно ' : ''}${plannedMinutes || '?'} мин запланированных`}
+              >
+                {formatTrackedTime(task.trackedSeconds)}
+                <span aria-hidden="true">/</span>
+                {estimateIsApproximate && '≈ '}
+                {plannedMinutes > 0 ? `${plannedMinutes} мин` : '? мин'}
+              </i>
+            )}
+            {hasTrackedTime && !hasCalculatedEstimate && <i>{formatTrackedTime(task.trackedSeconds)} затрачено</i>}
           </span>
         </div>
         {hasSubtasks && (
@@ -137,6 +156,7 @@ function TaskRow({
 export default function TaskList({
   tasks,
   projects,
+  roles,
   view,
   filter,
   onFilterChange,
@@ -193,6 +213,7 @@ export default function TaskList({
         key={task.id}
         task={task}
         project={projects.find((project) => project.id === task.projectId)}
+        role={roles.find((role) => role.id === task.roleId)}
         hasSubtasks={hasSubtasks}
         isExpanded={isExpanded}
         subtaskSummary={subtaskSummary}

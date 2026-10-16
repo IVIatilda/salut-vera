@@ -22,7 +22,7 @@ function formatTime(seconds) {
   return rest ? `${hours} ч ${rest} мин` : `${hours} ч`;
 }
 
-export default function ProjectList({ projects, tasks, onOpen }) {
+export default function ProjectList({ projects, tasks, roles, onOpen }) {
   const [filter, setFilter] = useState('open');
   const visibleProjects = projects.filter((project) => {
     if (filter === 'completed') return project.status === 'completed';
@@ -48,6 +48,8 @@ export default function ProjectList({ projects, tasks, onOpen }) {
       ) : (
         <div className="project-grid">
           {visibleProjects.map((project) => {
+            const role = roles.find((item) => item.id === project.roleId);
+            const roleTitle = role?.title || (project.area && project.area !== 'Без сферы' ? project.area : '');
             const projectTasks = tasks.filter((task) => task.projectId === project.id && task.status !== 'cancelled');
             const completed = projectTasks.filter(isTaskCompleted).length;
             const progress = projectTasks.length ? Math.round((completed / projectTasks.length) * 100) : 0;
@@ -61,7 +63,7 @@ export default function ProjectList({ projects, tasks, onOpen }) {
                 <strong>{project.title}</strong>
                 {project.description && <p>{project.description}</p>}
                 <span className="project-card-meta">
-                  {project.area !== 'Без сферы' && <i>{project.area}</i>}
+                  {roleTitle && <i>{roleTitle}</i>}
                   {project.targetDate && <i>до {formatDate(project.targetDate)}</i>}
                   {trackedSeconds > 0 && <i>{formatTime(trackedSeconds)} в фокусе</i>}
                 </span>

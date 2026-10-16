@@ -1,11 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
-import { listProjects, listTasks, removeProject, removeTask, saveProject, saveTask, saveTimeEntry } from '../shared/storage/indexed-db.js';
+import {
+  listProjects,
+  listRoles,
+  listTasks,
+  removeProject,
+  removeRole,
+  removeTask,
+  saveProject,
+  saveRole,
+  saveTask,
+  saveTimeEntry,
+} from '../shared/storage/indexed-db.js';
 import PomodoroCard from '../features/focus/components/PomodoroCard.jsx';
 import ProjectEditor from '../features/projects/components/ProjectEditor.jsx';
 import ProjectList from '../features/projects/components/ProjectList.jsx';
+import RoleEditor from '../features/roles/components/RoleEditor.jsx';
+import RoleList from '../features/roles/components/RoleList.jsx';
 import TaskEditor from '../features/tasks/components/TaskEditor.jsx';
 import TaskList from '../features/tasks/components/TaskList.jsx';
 import { createProject, normalizeProject } from '../features/projects/model/project-model.js';
+import { createRole, normalizeRole, ROLE_COLORS } from '../features/roles/model/role-model.js';
 import veraLogo from '../assets/images/vera-logo.png';
 import {
   calculateDailyPlannedMinutes,
@@ -21,6 +35,7 @@ const NAV_ITEMS = [
   ['inbox', 'Входящие'],
   ['tasks', 'Задачи'],
   ['projects', 'Проекты'],
+  ['roles', 'Сферы жизни'],
   ['calendar', 'Календарь'],
   ['focus', 'Фокус'],
   ['habits', 'Привычки'],
@@ -28,6 +43,8 @@ const NAV_ITEMS = [
   ['journal', 'Дневник'],
   ['review', 'Обзор'],
 ];
+
+const ENABLED_NAV_ITEMS = new Set(['today', 'inbox', 'tasks', 'projects', 'roles']);
 
 const EXAMPLE_TASKS = [
   {
@@ -75,6 +92,7 @@ function Icon({ name }) {
     inbox: 'M4 5h16v14H4zm0 9h5l1.5 2h3L15 14h5',
     tasks: 'm5 7 2 2 4-4m2 3h6M5 15l2 2 4-4m2 3h6',
     projects: 'M4 7h6l2 2h8v10H4zM4 7V5h6l2 2',
+    roles: 'M12 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6 20v-2a6 6 0 0 1 12 0v2M5 7a2 2 0 1 0 0 4m14-4a2 2 0 1 1 0 4',
     calendar: 'M5 6h14v14H5zM8 3v6m8-6v6M5 10h14',
     focus: 'M12 3a9 9 0 1 0 9 9M12 7v5l3 2',
     habits: 'M12 3c3 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-4 3-6 0 3 1 4 2 5 1-2 1-5 0-8z',
@@ -98,6 +116,7 @@ function App() {
   const [now, setNow] = useState(() => new Date());
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeNav, setActiveNav] = useState('today');
   const [taskFilter, setTaskFilter] = useState('active');
@@ -107,23 +126,73 @@ function App() {
   const [returnTaskDraft, setReturnTaskDraft] = useState(null);
   const [editingProjectId, setEditingProjectId] = useState(null);
   const [newProjectDraft, setNewProjectDraft] = useState(null);
+  const [editingRoleId, setEditingRoleId] = useState(null);
+  const [newRoleDraft, setNewRoleDraft] = useState(null);
 
   useEffect(() => {
-    Promise.all([listTasks(), listProjects()])
-      .then(async ([loadedTasks, storedProjects]) => {
+    Promise.all([listTasks(), listProjects(), listRoles()])
+      .then(async ([loadedTasks, storedProjects, storedRoles]) => {
         const storedTasks = loadedTasks.length ? loadedTasks : EXAMPLE_TASKS;
-        if (!loadedTasks.length) await Promise.all(EXAMPLE_TASKS.map(saveTask));
         const normalizedTasks = storedTasks.map((task) => normalizeTask(task));
-        const changedTasks = normalizedTasks.filter((task, index) => (
-          JSON.stringify(task) !== JSON.stringify(storedTasks[index])
-        ));
         const normalizedProjects = storedProjects.map(normalizeProject);
-        const changedProjects = normalizedProjects.filter((project, index) => (
-          JSON.stringify(project) !== JSON.stringify(storedProjects[index])
+        const normalizedRoles = storedRoles.map(normalizeRole);
+        const uniqueRoles = [];
+        const duplicateRoles = [];
+        const canonicalRoleByTitle = new Map();
+        normalizedRoles.forEach((role) => {
+          const key = role.title.trim().toLocaleLowerCase('ru-RU');
+          if (!key || !canonicalRoleByTitle.has(key)) {
+            uniqueRoles.push(role);
+            if (key) canonicalRoleByTitle.set(key, role);
+          } else {
+            duplicateRoles.push(role);
+          }
+        });
+        const exampleTaskIds = new Set(EXAMPLE_TASKS.map((task) => task.id));
+        const legacyRoleTitles = new Set([
+          ...normalizedTasks.filter((task) => !exampleTaskIds.has(task.id)).map((task) => task.area),
+          ...normalizedProjects.map((project) => project.area),
+        ].filter((title) => title && title !== 'Без сферы'));
+        const createdRoles = Array.from(legacyRoleTitles)
+          .filter((title) => !canonicalRoleByTitle.has(title.toLocaleLowerCase('ru-RU')))
+          .map((title, index) => ({
+            ...createRole(title, ROLE_COLORS[(uniqueRoles.length + index) % ROLE_COLORS.length]),
+            id: `legacy-area:${encodeURIComponent(title.trim().toLocaleLowerCase('ru-RU'))}`,
+          }));
+        const allRoles = [...uniqueRoles, ...createdRoles];
+        const allRolesByTitle = new Map(allRoles.map((role) => [role.title.toLocaleLowerCase('ru-RU'), role]));
+        const allRolesById = new Map(createdRoles.map((role) => [role.id, role]));
+        normalizedRoles.forEach((role) => {
+          allRolesById.set(role.id, allRolesByTitle.get(role.title.trim().toLocaleLowerCase('ru-RU')) || role);
+        });
+        const migratedTasks = normalizedTasks.map((task) => {
+          const role = allRolesById.get(task.roleId)
+            || allRolesByTitle.get(task.area?.toLocaleLowerCase('ru-RU'));
+          return { ...task, roleId: role?.id || null, area: role?.title || 'Без сферы' };
+        });
+        const migratedProjects = normalizedProjects.map((project) => {
+          const role = allRolesById.get(project.roleId)
+            || allRolesByTitle.get(project.area?.toLocaleLowerCase('ru-RU'));
+          return { ...project, roleId: role?.id || null, area: role?.title || 'Без сферы' };
+        });
+        const changedTasks = migratedTasks.filter((task, index) => JSON.stringify(task) !== JSON.stringify(storedTasks[index]));
+        const changedProjects = migratedProjects.filter((project, index) => JSON.stringify(project) !== JSON.stringify(storedProjects[index]));
+        const duplicateRoleIds = new Set(duplicateRoles.map((role) => role.id));
+        const storedRoleById = new Map(storedRoles.map((role) => [role.id, role]));
+        const changedRoles = uniqueRoles.filter((role) => (
+          !duplicateRoleIds.has(role.id)
+          && JSON.stringify(role) !== JSON.stringify(storedRoleById.get(role.id))
         ));
-        await Promise.all([...changedTasks.map(saveTask), ...changedProjects.map(saveProject)]);
-        setTasks(normalizedTasks);
-        setProjects(normalizedProjects);
+        await Promise.all([
+          ...changedTasks.map(saveTask),
+          ...changedProjects.map(saveProject),
+          ...changedRoles.map(saveRole),
+          ...createdRoles.map(saveRole),
+          ...duplicateRoles.map((role) => removeRole(role.id)),
+        ]);
+        setTasks(migratedTasks);
+        setProjects(migratedProjects);
+        setRoles(allRoles);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -166,6 +235,7 @@ function App() {
   const plannedMinutes = calculateDailyPlannedMinutes(tasks, todayKey);
   const editingTask = newTaskDraft || restoredTaskDraft || tasks.find((task) => task.id === editingTaskId);
   const editingProject = newProjectDraft || projects.find((project) => project.id === editingProjectId);
+  const editingRole = newRoleDraft || roles.find((role) => role.id === editingRoleId);
 
   async function addTask(title) {
     const task = createTask(title, activeNav, todayKey);
@@ -224,6 +294,60 @@ function App() {
     setEditingProjectId(null);
   }
 
+  function createNewRole() {
+    setEditingRoleId(null);
+    setNewRoleDraft(createRole('', ROLE_COLORS[roles.length % ROLE_COLORS.length]));
+  }
+
+  function openRoleEditor(role) {
+    setNewRoleDraft(null);
+    setEditingRoleId(role.id);
+  }
+
+  function closeRoleEditor() {
+    setNewRoleDraft(null);
+    setEditingRoleId(null);
+  }
+
+  async function updateRole(role) {
+    const linkedTasks = tasks.filter((task) => task.roleId === role.id);
+    const linkedProjects = projects.filter((project) => project.roleId === role.id);
+    const updatedTasks = linkedTasks.map((task) => ({ ...task, area: role.title, updatedAt: new Date().toISOString() }));
+    const updatedProjects = linkedProjects.map((project) => ({ ...project, area: role.title, updatedAt: new Date().toISOString() }));
+    const tasksById = new Map(updatedTasks.map((task) => [task.id, task]));
+    const projectsById = new Map(updatedProjects.map((project) => [project.id, project]));
+    await Promise.all([saveRole(role), ...updatedTasks.map(saveTask), ...updatedProjects.map(saveProject)]);
+    setRoles((current) => (
+      current.some((item) => item.id === role.id)
+        ? current.map((item) => (item.id === role.id ? role : item))
+        : [...current, role]
+    ));
+    setTasks((current) => current.map((task) => tasksById.get(task.id) || task));
+    setProjects((current) => current.map((project) => projectsById.get(project.id) || project));
+    closeRoleEditor();
+  }
+
+  async function deleteRole(role) {
+    const updatedAt = new Date().toISOString();
+    const detachedTasks = tasks
+      .filter((task) => task.roleId === role.id)
+      .map((task) => ({ ...task, roleId: null, area: 'Без сферы', updatedAt }));
+    const detachedProjects = projects
+      .filter((project) => project.roleId === role.id)
+      .map((project) => ({ ...project, roleId: null, area: 'Без сферы', updatedAt }));
+    const tasksById = new Map(detachedTasks.map((task) => [task.id, task]));
+    const projectsById = new Map(detachedProjects.map((project) => [project.id, project]));
+    await Promise.all([
+      removeRole(role.id),
+      ...detachedTasks.map(saveTask),
+      ...detachedProjects.map(saveProject),
+    ]);
+    setRoles((current) => current.filter((item) => item.id !== role.id));
+    setTasks((current) => current.map((task) => tasksById.get(task.id) || task));
+    setProjects((current) => current.map((project) => projectsById.get(project.id) || project));
+    closeRoleEditor();
+  }
+
   async function updateProject(project) {
     await saveProject(project);
     setProjects((current) => (
@@ -280,14 +404,43 @@ function App() {
     closeTaskEditor();
   }
 
-  async function updateTask(task) {
-    await saveTask(task);
+  async function updateTask(task, manualTime = null) {
+    let taskToSave = task;
+    let manualTimeEntry = null;
+    if (manualTime?.minutes > 0) {
+      const durationSeconds = Math.round(manualTime.minutes * 60);
+      const today = localDateKey();
+      const endedAt = manualTime.date === today
+        ? new Date()
+        : new Date(`${manualTime.date}T12:00:00`);
+      const safeEndedAt = Number.isNaN(endedAt.getTime()) ? new Date() : endedAt;
+      const startedAt = new Date(safeEndedAt.getTime() - durationSeconds * 1_000);
+      manualTimeEntry = {
+        id: crypto.randomUUID(),
+        taskId: task.id,
+        startedAt: startedAt.toISOString(),
+        endedAt: safeEndedAt.toISOString(),
+        durationSeconds,
+        source: 'manual',
+        practiceType: 'ordinary',
+        createdAt: new Date().toISOString(),
+      };
+      taskToSave = {
+        ...task,
+        trackedSeconds: (task.trackedSeconds || 0) + durationSeconds,
+      };
+    }
+
+    await Promise.all([
+      saveTask(taskToSave),
+      ...(manualTimeEntry ? [saveTimeEntry(manualTimeEntry)] : []),
+    ]);
     setTasks((current) => (
-      current.some((item) => item.id === task.id)
-        ? current.map((item) => (item.id === task.id ? task : item))
-        : [...current, task]
+      current.some((item) => item.id === taskToSave.id)
+        ? current.map((item) => (item.id === taskToSave.id ? taskToSave : item))
+        : [...current, taskToSave]
     ));
-    if (returnTaskDraft && task.parentTaskId === returnTaskDraft.id) {
+    if (returnTaskDraft && taskToSave.parentTaskId === returnTaskDraft.id) {
       returnToParentTask();
       return;
     }
@@ -302,6 +455,7 @@ function App() {
       status: 'planned',
       completed: false,
       area: parent.area,
+      roleId: parent.roleId,
       projectId: parent.projectId,
       scheduledDate: parent.scheduledDate,
       dueDate: parent.dueDate,
@@ -327,9 +481,9 @@ function App() {
             <button
               className={`nav-item ${id === activeNav ? 'active' : ''}`}
               key={id}
-              disabled={!['today', 'inbox', 'tasks', 'projects'].includes(id)}
+              disabled={!ENABLED_NAV_ITEMS.has(id)}
               onClick={() => setActiveNav(id)}
-              title={['today', 'inbox', 'tasks', 'projects'].includes(id) ? undefined : 'Появится в следующих этапах'}
+              title={ENABLED_NAV_ITEMS.has(id) ? undefined : 'Появится в следующих этапах'}
               type="button"
             >
               <Icon name={id} />
@@ -352,11 +506,14 @@ function App() {
               <img className="brand-logo-image" src={veraLogo} alt="" />
             </span>
           </div>
-          <button className="avatar" type="button" aria-label="Открыть профиль">А</button>
+          <div className="topbar-tools">
+            <PomodoroCard compact tasks={tasks} onFocusComplete={handleFocusComplete} />
+            <button className="avatar" type="button" aria-label="Открыть профиль">А</button>
+          </div>
         </header>
 
         <nav className="mobile-nav" aria-label="Разделы задач">
-          {NAV_ITEMS.slice(0, 4).map(([id, label]) => (
+          {NAV_ITEMS.filter(([id]) => ENABLED_NAV_ITEMS.has(id)).map(([id, label]) => (
             <button
               className={id === activeNav ? 'active' : ''}
               key={id}
@@ -414,6 +571,17 @@ function App() {
                 Добавить проект
               </button>
             </section>
+          ) : activeNav === 'roles' ? (
+            <section className="module-header">
+              <div className="module-header-copy">
+                <span className="eyebrow">Баланс жизни</span>
+                <h1>Сферы жизни</h1>
+                <p>Соберите важные части своей жизни и связывайте с ними задачи, проекты и время в фокусе.</p>
+              </div>
+              <button className="new-task-button" onClick={createNewRole} type="button">
+                Добавить сферу
+              </button>
+            </section>
           ) : (
             <section className="module-header">
               <div className="module-header-copy">
@@ -450,6 +618,7 @@ function App() {
               <TaskList
                 tasks={tasks}
                 projects={projects}
+                roles={roles}
                 view="today"
                 filter="active"
                 onFilterChange={setTaskFilter}
@@ -461,8 +630,6 @@ function App() {
             </section>
 
             <aside className="secondary-column">
-              <PomodoroCard tasks={tasks} onFocusComplete={handleFocusComplete} />
-
               <section className="check-in-card">
                 <div className="section-heading compact">
                   <div>
@@ -478,13 +645,18 @@ function App() {
             </div>
           ) : activeNav === 'projects' ? (
             <div className="projects-page">
-              <ProjectList projects={projects} tasks={tasks} onOpen={openProjectEditor} />
+              <ProjectList projects={projects} tasks={tasks} roles={roles} onOpen={openProjectEditor} />
+            </div>
+          ) : activeNav === 'roles' ? (
+            <div className="roles-page">
+              <RoleList roles={roles} tasks={tasks} projects={projects} onOpen={openRoleEditor} />
             </div>
           ) : (
             <div className="tasks-page">
               <TaskList
                 tasks={tasks}
                 projects={projects}
+                roles={roles}
                 view={activeNav}
                 filter={taskFilter}
                 onFilterChange={setTaskFilter}
@@ -502,6 +674,7 @@ function App() {
           task={editingTask}
           tasks={tasks}
           projects={projects}
+          roles={roles}
           parentTask={returnTaskDraft}
           isNew={Boolean(newTaskDraft)}
           onBack={returnToParentTask}
@@ -517,10 +690,23 @@ function App() {
           project={editingProject}
           projects={projects}
           tasks={tasks}
+          roles={roles}
           isNew={Boolean(newProjectDraft)}
           onClose={closeProjectEditor}
           onDelete={deleteProject}
           onSave={updateProject}
+        />
+      )}
+      {editingRole && (
+        <RoleEditor
+          role={editingRole}
+          roles={roles}
+          tasks={tasks}
+          projects={projects}
+          isNew={Boolean(newRoleDraft)}
+          onClose={closeRoleEditor}
+          onDelete={deleteRole}
+          onSave={updateRole}
         />
       )}
     </div>

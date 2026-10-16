@@ -1,8 +1,9 @@
 const DB_NAME = 'vera-organizer';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const TASK_STORE = 'tasks';
 const TIME_ENTRY_STORE = 'timeEntries';
 const PROJECT_STORE = 'projects';
+const ROLE_STORE = 'roles';
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -25,6 +26,12 @@ function openDatabase() {
         const projectStore = database.createObjectStore(PROJECT_STORE, { keyPath: 'id' });
         projectStore.createIndex('createdAt', 'createdAt');
         projectStore.createIndex('status', 'status');
+      }
+
+      if (!database.objectStoreNames.contains(ROLE_STORE)) {
+        const roleStore = database.createObjectStore(ROLE_STORE, { keyPath: 'id' });
+        roleStore.createIndex('createdAt', 'createdAt');
+        roleStore.createIndex('status', 'status');
       }
     };
 
@@ -82,4 +89,18 @@ export function saveProject(project) {
 
 export function removeProject(projectId) {
   return runTransaction(PROJECT_STORE, 'readwrite', (store) => store.delete(projectId));
+}
+
+export function listRoles() {
+  return runTransaction(ROLE_STORE, 'readonly', (store) => store.getAll()).then((roles) =>
+    roles.sort((first, second) => first.createdAt.localeCompare(second.createdAt)),
+  );
+}
+
+export function saveRole(role) {
+  return runTransaction(ROLE_STORE, 'readwrite', (store) => store.put(role));
+}
+
+export function removeRole(roleId) {
+  return runTransaction(ROLE_STORE, 'readwrite', (store) => store.delete(roleId));
 }

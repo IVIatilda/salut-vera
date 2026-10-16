@@ -25,6 +25,21 @@ export function truncateTaskTitle(title, limit = 50) {
   return title.length > limit ? `${title.slice(0, limit)}…` : title;
 }
 
+export function getTaskDescendantIds(tasks, taskId) {
+  const descendantIds = new Set();
+  let foundNewDescendants = true;
+  while (foundNewDescendants) {
+    foundNewDescendants = false;
+    tasks.forEach((task) => {
+      if (task.parentTaskId && (task.parentTaskId === taskId || descendantIds.has(task.parentTaskId)) && !descendantIds.has(task.id)) {
+        descendantIds.add(task.id);
+        foundNewDescendants = true;
+      }
+    });
+  }
+  return descendantIds;
+}
+
 export function normalizeTask(task, today = localDateKey()) {
   const isLegacyTask = !task.status;
   const status = task.completed ? 'completed' : task.status || 'planned';
@@ -36,6 +51,7 @@ export function normalizeTask(task, today = localDateKey()) {
     isUrgent: false,
     origin: 'unclear',
     area: 'Без сферы',
+    roleId: null,
     estimate: 0,
     trackedSeconds: 0,
     scheduledDate: isLegacyTask ? today : '',
@@ -89,11 +105,11 @@ export function createSubtaskSummaryMap(tasks) {
     const summary = (childrenByParentId.get(parentId) || []).reduce((total, child) => {
       const nested = summarize(child.id);
       const isActive = !isTaskCompleted(child);
-      const ownEstimate = isActive ? Math.max(0, Number(child.estimate) || 0) : 0;
+      const ownEstimate = Math.max(0, Number(child.estimate) || 0);
 
       return {
         estimatedMinutes: total.estimatedMinutes + Math.max(ownEstimate, nested.estimatedMinutes),
-        isApproximate: total.isApproximate || nested.isApproximate || (isActive && ownEstimate === 0),
+        isApproximate: total.isApproximate || nested.isApproximate || ownEstimate === 0,
         hasUrgent: total.hasUrgent || nested.hasUrgent || (isActive && Boolean(child.isUrgent)),
         hasImportant: total.hasImportant || nested.hasImportant || (isActive && child.importance === 'high'),
       };

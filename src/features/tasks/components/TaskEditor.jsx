@@ -1,21 +1,73 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import AsyncAutocomplete from '../../../shared/ui/AsyncAutocomplete.jsx';
 import CustomSelect from '../../../shared/ui/CustomSelect.jsx';
-import { IMPORTANCE_LEVELS, TASK_STATUSES, truncateTaskTitle } from '../model/task-model.js';
+import { loadTaskOptions } from '../data/task-option-source.js';
+import { getTaskDescendantIds, localDateKey, TASK_STATUSES, truncateTaskTitle } from '../model/task-model.js';
 
-const DEFAULT_AREAS = ['Работа', 'Семья', 'Здоровье', 'Дружба', 'Финансы', 'Отдых', 'Творчество'];
+const IMPORTANCE_OPTIONS = [
+  { value: 'unset', label: 'Без важности', icon: 'none' },
+  { value: 'low', label: 'Низкая важность', icon: 'down' },
+  { value: 'normal', label: 'Обычная важность', icon: 'normal' },
+  { value: 'high', label: 'Высокая важность', icon: 'up' },
+];
 
-export default function TaskEditor({ task, tasks, projects, parentTask, isNew = false, onBack, onClose, onOpenTask, onDelete, onSave, onAddSubtask }) {
+function initialExpandedFields(task) {
+  return {
+    description: Boolean(task.description?.trim()),
+    role: Boolean(task.roleId),
+    project: Boolean(task.projectId),
+    scheduledDate: Boolean(task.scheduledDate),
+    dueDate: Boolean(task.dueDate),
+    estimate: Number(task.estimate) > 0,
+  };
+}
+
+function OptionalField({ id, label, isOpen, onToggle, wide = false, children }) {
+  return (
+    <div className={`optional-task-field ${wide ? 'wide' : ''} ${isOpen ? 'open' : ''}`}>
+      <button className="optional-task-field-toggle" type="button" aria-expanded={isOpen} onClick={() => onToggle(id)}>
+        <span>{label}</span>
+        <i aria-hidden="true">{isOpen ? '−' : '+'}</i>
+      </button>
+      {isOpen && <div className="optional-task-field-content">{children}</div>}
+    </div>
+  );
+}
+
+function ImportanceIcon({ type }) {
+  const paths = {
+    none: 'M6 6l12 12M18 6 6 18',
+    down: 'M12 5v14m-5-5 5 5 5-5',
+    normal: 'M6 12h12',
+    up: 'M12 19V5m-5 5 5-5 5 5',
+  };
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[type]} /></svg>;
+}
+
+function formatTrackedTime(seconds = 0) {
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} ч ${rest} мин` : `${hours} ч`;
+}
+
+export default function TaskEditor({ task, tasks, projects, roles, parentTask, isNew = false, onBack, onClose, onOpenTask, onDelete, onSave, onAddSubtask }) {
   const [draft, setDraft] = useState(task);
+  const [expandedFields, setExpandedFields] = useState(() => initialExpandedFields(task));
+  const [parentFieldOpen, setParentFieldOpen] = useState(Boolean(task.parentTaskId));
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const areas = useMemo(() => Array.from(new Set([
-    ...DEFAULT_AREAS,
-    ...tasks.map((item) => item.area).filter((area) => area && area !== 'Без сферы'),
-  ])), [tasks]);
-  const areaOptions = useMemo(() => [
-    { value: 'Без сферы', label: 'Не выбрана' },
-    ...areas.map((area) => ({ value: area, label: area })),
-  ], [areas]);
+  const [manualTimeOpen, setManualTimeOpen] = useState(false);
+  const [manualMinutes, setManualMinutes] = useState('');
+  const [manualDate, setManualDate] = useState(localDateKey());
+  const [isSaving, setIsSaving] = useState(false);
+  const roleOptions = useMemo(() => [
+    { value: '', label: 'Без сферы' },
+    ...roles
+      .filter((role) => role.status !== 'archived' || role.id === task.roleId)
+      .map((role) => ({ value: role.id, label: role.title })),
+  ], [roles, task.roleId]);
   const projectOptions = useMemo(() => [
     { value: '', label: 'Без проекта' },
     ...projects
@@ -23,17 +75,33 @@ export default function TaskEditor({ task, tasks, projects, parentTask, isNew = 
       .map((project) => ({ value: project.id, label: project.title })),
   ], [projects, task.projectId]);
   const subtasks = tasks.filter((item) => item.parentTaskId === task.id && item.status !== 'cancelled');
-  const isSubtask = Boolean(task.parentTaskId);
+  const isSubtask = Boolean(draft.parentTaskId);
+  const selectedParent = tasks.find((item) => item.id === draft.parentTaskId);
+  const excludedParentIds = useMemo(() => {
+    const ids = getTaskDescendantIds(tasks, task.id);
+    ids.add(task.id);
+    return ids;
+  }, [tasks, task.id]);
+  const loadParentOptions = useCallback(
+    (request) => loadTaskOptions({ ...request, tasks, excludedIds: excludedParentIds }),
+    [tasks, excludedParentIds],
+  );
 
   useEffect(() => {
     setDraft(task);
+    setExpandedFields(initialExpandedFields(task));
+    setParentFieldOpen(Boolean(task.parentTaskId));
     setSubtaskTitle('');
     setConfirmDelete(false);
+    setManualTimeOpen(false);
+    setManualMinutes('');
+    setManualDate(localDateKey());
+    setIsSaving(false);
   }, [task]);
 
   useEffect(() => {
     function closeOnEscape(event) {
-      if (event.key === 'Escape' && !document.querySelector('.custom-select.open')) onClose();
+      if (event.key === 'Escape' && !document.querySelector('.custom-select.open, .async-autocomplete.open')) onClose();
     }
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
@@ -43,27 +111,45 @@ export default function TaskEditor({ task, tasks, projects, parentTask, isNew = 
     setDraft((current) => ({ ...current, [field]: value }));
   }
 
+  function toggleOptionalField(field) {
+    setExpandedFields((current) => ({ ...current, [field]: !current[field] }));
+  }
+
   function updateProject(projectId) {
     const project = projects.find((item) => item.id === projectId);
     setDraft((current) => ({
       ...current,
       projectId: projectId || null,
-      area: current.area === 'Без сферы' && project?.area ? project.area : current.area,
+      roleId: current.roleId || project?.roleId || null,
+      area: current.roleId || !project?.roleId
+        ? current.area
+        : roles.find((role) => role.id === project.roleId)?.title || project.area || 'Без сферы',
     }));
   }
 
-  function submit(event) {
+  function updateRole(roleId) {
+    const role = roles.find((item) => item.id === roleId);
+    setDraft((current) => ({ ...current, roleId: roleId || null, area: role?.title || 'Без сферы' }));
+  }
+
+  async function submit(event) {
     event.preventDefault();
-    if (!draft.title.trim()) return;
-    onSave({
-      ...draft,
-      title: draft.title.trim(),
-      description: draft.description.trim(),
-      estimate: Math.max(0, Number(draft.estimate) || 0),
-      completed: draft.status === 'completed',
-      completedAt: draft.status === 'completed' ? draft.completedAt || new Date().toISOString() : null,
-      updatedAt: new Date().toISOString(),
-    });
+    if (!draft.title.trim() || isSaving) return;
+    const minutes = Math.max(0, Number(manualMinutes) || 0);
+    setIsSaving(true);
+    try {
+      await onSave({
+        ...draft,
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        estimate: Math.max(0, Number(draft.estimate) || 0),
+        completed: draft.status === 'completed',
+        completedAt: draft.status === 'completed' ? draft.completedAt || new Date().toISOString() : null,
+        updatedAt: new Date().toISOString(),
+      }, minutes > 0 ? { minutes, date: manualDate || localDateKey() } : null);
+    } catch {
+      setIsSaving(false);
+    }
   }
 
   function addSubtask(event) {
@@ -81,7 +167,7 @@ export default function TaskEditor({ task, tasks, projects, parentTask, isNew = 
 
   return (
     <div className="task-editor-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="task-editor" role="dialog" aria-modal="true" aria-labelledby="task-editor-title">
+      <section className="task-editor compact-task-editor" role="dialog" aria-modal="true" aria-labelledby="task-editor-title">
         <form onSubmit={submit}>
           {parentTask && (
             <button className="editor-back" onClick={onBack} title={parentTask.title} type="button">
@@ -102,125 +188,103 @@ export default function TaskEditor({ task, tasks, projects, parentTask, isNew = 
             <input value={draft.title} onChange={(event) => update('title', event.target.value)} autoFocus required />
           </label>
 
-          <label className="editor-field wide">
-            <span>Описание</span>
-            <textarea
-              value={draft.description}
-              onChange={(event) => update('description', event.target.value)}
-              placeholder="Контекст, ссылки или ожидаемый результат"
-              rows="4"
-            />
-          </label>
+          {parentFieldOpen || isSubtask ? (
+            <div className="editor-field wide parent-task-field">
+              <div className="editor-inline-label">
+                <span>Родительская задача</span>
+                {!isSubtask && <button type="button" onClick={() => setParentFieldOpen(false)}>Убрать</button>}
+              </div>
+              <AsyncAutocomplete
+                value={draft.parentTaskId || ''}
+                selectedLabel={selectedParent?.title || ''}
+                loadOptions={loadParentOptions}
+                onChange={(option) => update('parentTaskId', option?.value || null)}
+                placeholder="Найти задачу"
+                ariaLabel="Родительская задача"
+              />
+            </div>
+          ) : (
+            <button className="choose-parent-button" type="button" onClick={() => setParentFieldOpen(true)}>
+              <span aria-hidden="true">+</span> Выбрать родительскую задачу
+            </button>
+          )}
 
-          <div className="editor-grid">
+          <OptionalField id="description" label="Описание" isOpen={expandedFields.description} onToggle={toggleOptionalField} wide>
+            <textarea value={draft.description} onChange={(event) => update('description', event.target.value)} placeholder="Контекст, ссылки или ожидаемый результат" rows="4" />
+          </OptionalField>
+
+          <div className="editor-grid compact-core-fields">
             <div className="editor-field">
               <span>Статус</span>
-              <CustomSelect
-                value={draft.status}
-                options={TASK_STATUSES}
-                onChange={(value) => update('status', value)}
-                ariaLabel="Статус"
-              />
+              <CustomSelect value={draft.status} options={TASK_STATUSES} onChange={(value) => update('status', value)} ariaLabel="Статус" />
             </div>
-
-            <div className="editor-field">
-              <span>Сфера жизни</span>
-              <CustomSelect
-                value={draft.area}
-                options={areaOptions}
-                onChange={(value) => update('area', value)}
-                ariaLabel="Сфера жизни"
-              />
-            </div>
-
-            <div className="editor-field wide">
-              <span>Проект</span>
-              <CustomSelect
-                value={draft.projectId || ''}
-                options={projectOptions}
-                onChange={updateProject}
-                ariaLabel="Проект"
-              />
-            </div>
-
-            <label className="editor-field">
-              <span>Запланировать</span>
-              <input type="date" value={draft.scheduledDate} onChange={(event) => update('scheduledDate', event.target.value)} />
-            </label>
-
-            <label className="editor-field">
-              <span>Дедлайн</span>
-              <input type="date" value={draft.dueDate} onChange={(event) => update('dueDate', event.target.value)} />
-            </label>
-
-            <div className="editor-field">
-              <span>Важность</span>
-              <CustomSelect
-                value={draft.importance}
-                options={IMPORTANCE_LEVELS}
-                onChange={(value) => update('importance', value)}
-                ariaLabel="Важность"
-              />
-            </div>
-
-            <label className="editor-field">
-              <span>Оценка, минут</span>
-              <input
-                type="number"
-                min="0"
-                max="1440"
-                value={draft.estimate || ''}
-                onChange={(event) => update('estimate', event.target.value)}
-                placeholder="Не указана"
-              />
-            </label>
+            <fieldset className="editor-field importance-field">
+              <legend>Важность</legend>
+              <div className="importance-options">
+                {IMPORTANCE_OPTIONS.map((option) => (
+                  <button className={draft.importance === option.value ? `active ${option.value}` : option.value} key={option.value} type="button" title={option.label} aria-label={option.label} aria-pressed={draft.importance === option.value} onClick={() => update('importance', option.value)}>
+                    <ImportanceIcon type={option.icon} />
+                  </button>
+                ))}
+              </div>
+            </fieldset>
           </div>
 
-          <label className="editor-checkbox">
+          <label className="editor-checkbox compact-urgent-field">
             <input type="checkbox" checked={draft.isUrgent} onChange={(event) => update('isUrgent', event.target.checked)} />
             <span>Задача срочная</span>
           </label>
 
+          <div className="task-optional-grid">
+            <OptionalField id="role" label="Сфера жизни" isOpen={expandedFields.role} onToggle={toggleOptionalField}>
+              <CustomSelect value={draft.roleId || ''} options={roleOptions} onChange={updateRole} ariaLabel="Сфера жизни" />
+            </OptionalField>
+            <OptionalField id="project" label="Проект" isOpen={expandedFields.project} onToggle={toggleOptionalField}>
+              <CustomSelect value={draft.projectId || ''} options={projectOptions} onChange={updateProject} ariaLabel="Проект" />
+            </OptionalField>
+            <OptionalField id="scheduledDate" label="Запланировать" isOpen={expandedFields.scheduledDate} onToggle={toggleOptionalField}>
+              <input type="date" value={draft.scheduledDate} onChange={(event) => update('scheduledDate', event.target.value)} />
+            </OptionalField>
+            <OptionalField id="dueDate" label="Дедлайн" isOpen={expandedFields.dueDate} onToggle={toggleOptionalField}>
+              <input type="date" value={draft.dueDate} onChange={(event) => update('dueDate', event.target.value)} />
+            </OptionalField>
+            <OptionalField id="estimate" label="Оценка времени" isOpen={expandedFields.estimate} onToggle={toggleOptionalField}>
+              <div className="estimate-input">
+                <input type="number" min="0" max="1440" value={draft.estimate || ''} onChange={(event) => update('estimate', event.target.value)} placeholder="0" />
+                <span>мин</span>
+              </div>
+            </OptionalField>
+          </div>
+
+          <section className="manual-time-section">
+            <div><span>Затраченное время</span><strong>{formatTrackedTime(draft.trackedSeconds)}</strong></div>
+            <button type="button" aria-expanded={manualTimeOpen} onClick={() => setManualTimeOpen((current) => !current)}>{manualTimeOpen ? 'Убрать' : '+ Записать вручную'}</button>
+            {manualTimeOpen && (
+              <div className="manual-time-fields">
+                <label><span>Минуты</span><input type="number" min="1" max="1440" value={manualMinutes} onChange={(event) => setManualMinutes(event.target.value)} placeholder="30" /></label>
+                <label><span>Дата</span><input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} /></label>
+              </div>
+            )}
+          </section>
+
           {!isSubtask && !isNew && (
             <section className="editor-subtasks">
-              <div className="editor-subtasks-heading">
-                <strong>Подзадачи</strong>
-                <span>{subtasks.length}</span>
-              </div>
+              <div className="editor-subtasks-heading"><strong>Подзадачи</strong><span>{subtasks.length}</span></div>
               {subtasks.map((subtask) => (
-                <button key={subtask.id} type="button" onClick={() => onOpenTask(subtask, draft)}>
-                  <span className={subtask.completed ? 'done' : ''}>{subtask.title}</span>
-                  <i>›</i>
-                </button>
+                <button key={subtask.id} type="button" onClick={() => onOpenTask(subtask, draft)}><span className={subtask.completed ? 'done' : ''}>{subtask.title}</span><i>›</i></button>
               ))}
               <div className="subtask-add">
-                <input
-                  value={subtaskTitle}
-                  onChange={(event) => setSubtaskTitle(event.target.value)}
-                  onKeyDown={handleSubtaskKeyDown}
-                  placeholder="Добавить подзадачу"
-                />
+                <input value={subtaskTitle} onChange={(event) => setSubtaskTitle(event.target.value)} onKeyDown={handleSubtaskKeyDown} placeholder="Добавить подзадачу" />
                 <button onClick={addSubtask} type="button">Добавить</button>
               </div>
             </section>
           )}
 
           <div className="task-editor-actions">
-            {isNew ? (
-              <span className="new-task-hint">Задача появится после сохранения</span>
-            ) : confirmDelete ? (
-              <div className="delete-confirmation">
-                <span>Удалить задачу{subtasks.length ? ' и её подзадачи' : ''}?</span>
-                <button className="delete-confirm" onClick={() => onDelete(task)} type="button">Удалить</button>
-                <button onClick={() => setConfirmDelete(false)} type="button">Не удалять</button>
-              </div>
-            ) : (
-              <button className="editor-delete" onClick={() => setConfirmDelete(true)} type="button">Удалить</button>
-            )}
-            <div>
-              <button className="editor-cancel" onClick={onClose} type="button">Отмена</button>
-              <button className="editor-save" type="submit">{isNew ? 'Создать' : 'Сохранить'}</button>
-            </div>
+            {isNew ? <span className="new-task-hint">Задача появится после сохранения</span> : confirmDelete ? (
+              <div className="delete-confirmation"><span>Удалить задачу{subtasks.length ? ' и её подзадачи' : ''}?</span><button className="delete-confirm" onClick={() => onDelete(task)} type="button">Удалить</button><button onClick={() => setConfirmDelete(false)} type="button">Не удалять</button></div>
+            ) : <button className="editor-delete" onClick={() => setConfirmDelete(true)} type="button">Удалить</button>}
+            <div><button className="editor-cancel" onClick={onClose} type="button">Отмена</button><button className="editor-save" disabled={isSaving} type="submit">{isSaving ? 'Сохранение…' : isNew ? 'Создать' : 'Сохранить'}</button></div>
           </div>
         </form>
       </section>

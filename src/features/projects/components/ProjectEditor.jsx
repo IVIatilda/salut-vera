@@ -2,22 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import CustomSelect from '../../../shared/ui/CustomSelect.jsx';
 import { PROJECT_STATUSES } from '../model/project-model.js';
 
-const DEFAULT_AREAS = ['Работа', 'Семья', 'Здоровье', 'Дружба', 'Финансы', 'Отдых', 'Творчество'];
-
-export default function ProjectEditor({ project, projects, tasks, isNew, onClose, onDelete, onSave }) {
+export default function ProjectEditor({ project, projects, tasks, roles, isNew, onClose, onDelete, onSave }) {
   const [draft, setDraft] = useState(project);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const taskCount = tasks.filter((task) => task.projectId === project.id).length;
-  const areaOptions = useMemo(() => {
-    const areas = Array.from(new Set([
-      ...DEFAULT_AREAS,
-      ...projects.map((item) => item.area).filter((area) => area && area !== 'Без сферы'),
-    ]));
-    return [
-      { value: 'Без сферы', label: 'Не выбрана' },
-      ...areas.map((area) => ({ value: area, label: area })),
-    ];
-  }, [projects]);
+  const roleOptions = useMemo(() => [
+    { value: '', label: 'Без сферы' },
+    ...roles
+      .filter((role) => role.status !== 'archived' || role.id === project.roleId)
+      .map((role) => ({ value: role.id, label: role.title })),
+  ], [roles, project.roleId]);
 
   useEffect(() => {
     setDraft(project);
@@ -45,6 +39,15 @@ export default function ProjectEditor({ project, projects, tasks, isNew, onClose
       description: draft.description.trim(),
       updatedAt: new Date().toISOString(),
     });
+  }
+
+  function updateRole(roleId) {
+    const role = roles.find((item) => item.id === roleId);
+    setDraft((current) => ({
+      ...current,
+      roleId: roleId || null,
+      area: role?.title || 'Без сферы',
+    }));
   }
 
   return (
@@ -76,7 +79,7 @@ export default function ProjectEditor({ project, projects, tasks, isNew, onClose
             </div>
             <div className="editor-field">
               <span>Сфера жизни</span>
-              <CustomSelect value={draft.area} options={areaOptions} onChange={(value) => update('area', value)} ariaLabel="Сфера проекта" />
+              <CustomSelect value={draft.roleId || ''} options={roleOptions} onChange={updateRole} ariaLabel="Сфера жизни проекта" />
             </div>
             <label className="editor-field wide">
               <span>Целевая дата</span>

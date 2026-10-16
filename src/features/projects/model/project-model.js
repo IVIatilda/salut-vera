@@ -11,6 +11,7 @@ export function normalizeProject(project) {
     description: '',
     status: 'active',
     area: 'Без сферы',
+    roleId: null,
     targetDate: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

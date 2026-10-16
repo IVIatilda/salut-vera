@@ -3,6 +3,7 @@ import {
   calculateDailyPlannedMinutes,
   createTask,
   createSubtaskSummaryMap,
+  getTaskDescendantIds,
   normalizeTask,
   taskMatchesView,
   truncateTaskTitle,
@@ -119,5 +120,30 @@ describe('task model', () => {
     expect(summary.estimatedMinutes).toBe(30);
     expect(summary.isApproximate).toBe(true);
     expect(summary.hasUrgent).toBe(false);
+  });
+
+  it('keeps completed subtask estimates in the total scope of a parent task', () => {
+    const tasks = [
+      { id: 'parent', status: 'completed', estimate: 0 },
+      { id: 'child-1', parentTaskId: 'parent', status: 'completed', estimate: 20 },
+      { id: 'child-2', parentTaskId: 'parent', status: 'completed', estimate: 20 },
+      { id: 'child-3', parentTaskId: 'parent', status: 'completed', estimate: 20 },
+      { id: 'child-4', parentTaskId: 'parent', status: 'completed', estimate: 15 },
+    ];
+    const summary = createSubtaskSummaryMap(tasks).get('parent');
+
+    expect(summary.estimatedMinutes).toBe(75);
+    expect(summary.isApproximate).toBe(false);
+  });
+
+  it('finds every descendant so a task cannot be moved inside its own tree', () => {
+    const tasks = [
+      { id: 'parent' },
+      { id: 'child', parentTaskId: 'parent' },
+      { id: 'grandchild', parentTaskId: 'child' },
+      { id: 'unrelated' },
+    ];
+
+    expect(Array.from(getTaskDescendantIds(tasks, 'parent')).sort()).toEqual(['child', 'grandchild']);
   });
 });

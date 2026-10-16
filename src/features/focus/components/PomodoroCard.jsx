@@ -83,9 +83,10 @@ function ControlIcon({ name }) {
   );
 }
 
-export default function PomodoroCard({ tasks, onFocusComplete }) {
+export default function PomodoroCard({ tasks, onFocusComplete, compact = false }) {
   const [timer, setTimer] = useState(loadTimerState);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isCompactOpen, setIsCompactOpen] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState({
     presetId: timer.presetId,
     focusMinutes: String(timer.focusMinutes),
@@ -94,6 +95,7 @@ export default function PomodoroCard({ tasks, onFocusComplete }) {
   const [saveError, setSaveError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const finishingRef = useRef(false);
+  const compactRef = useRef(null);
   const availableTasks = tasks.filter((task) => !task.completed && task.status !== 'cancelled');
   const selectedTask = tasks.find((task) => task.id === timer.taskId);
   const taskOptions = [
@@ -127,6 +129,27 @@ export default function PomodoroCard({ tasks, onFocusComplete }) {
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [isSettingsOpen]);
+
+  useEffect(() => {
+    if (!compact || !isCompactOpen) return undefined;
+
+    function closeCompactTimer(event) {
+      if (event.key === 'Escape') {
+        setIsCompactOpen(false);
+        return;
+      }
+      if (event.type === 'pointerdown' && !compactRef.current?.contains(event.target)) {
+        setIsCompactOpen(false);
+      }
+    }
+
+    window.addEventListener('keydown', closeCompactTimer);
+    window.addEventListener('pointerdown', closeCompactTimer);
+    return () => {
+      window.removeEventListener('keydown', closeCompactTimer);
+      window.removeEventListener('pointerdown', closeCompactTimer);
+    };
+  }, [compact, isCompactOpen]);
 
   useEffect(() => {
     if (timer.status !== 'running') return undefined;
@@ -286,9 +309,8 @@ export default function PomodoroCard({ tasks, onFocusComplete }) {
     && Number(settingsDraft.breakMinutes) >= 1
     && Number(settingsDraft.breakMinutes) <= 60;
 
-  return (
-    <>
-      <section className={`focus-card ${timer.mode === 'break' ? 'break-mode' : ''}`}>
+  const timerCard = (
+    <section className={`focus-card ${timer.mode === 'break' ? 'break-mode' : ''}`}>
         <div className="focus-card-heading">
           <span className="eyebrow light">{timer.mode === 'focus' ? 'Фокус' : 'Перерыв'}</span>
           <button
@@ -369,7 +391,25 @@ export default function PomodoroCard({ tasks, onFocusComplete }) {
           )}
         </div>
         {saveError && <p className="focus-error" role="alert">{saveError}</p>}
-      </section>
+    </section>
+  );
+
+  return (
+    <>
+      {compact ? (
+        <div className="compact-focus" ref={compactRef}>
+          <button
+            className={`compact-focus-time ${timer.mode === 'break' ? 'break-mode' : ''}`}
+            type="button"
+            onClick={() => setIsCompactOpen((current) => !current)}
+            aria-label={`${timer.mode === 'focus' ? 'Фокус' : 'Перерыв'}: ${formatCountdown(timer.remainingSeconds)}. Открыть таймер`}
+            aria-expanded={isCompactOpen}
+          >
+            <span role="timer" aria-live="off">{formatCountdown(timer.remainingSeconds)}</span>
+          </button>
+          {isCompactOpen && <div className="compact-focus-popover">{timerCard}</div>}
+        </div>
+      ) : timerCard}
 
       {isSettingsOpen && (
         <div
