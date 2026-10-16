@@ -24,7 +24,7 @@ function initialExpandedFields(task) {
 
 function OptionalField({ id, label, isOpen, onToggle, wide = false, children }) {
   return (
-    <div className={`optional-task-field ${wide ? 'wide' : ''} ${isOpen ? 'open' : ''}`}>
+    <div className={`optional-task-field ${wide ? 'wide' : ''} ${isOpen ? 'open' : ''}`} data-field={id}>
       <button className="optional-task-field-toggle" type="button" aria-expanded={isOpen} onClick={() => onToggle(id)}>
         <span>{label}</span>
         <i aria-hidden="true">{isOpen ? '−' : '+'}</i>
@@ -236,24 +236,28 @@ export default function TaskEditor({ task, tasks, projects, roles, parentTask, i
           </label>
 
           <div className="task-optional-grid">
-            <OptionalField id="role" label="Сфера жизни" isOpen={expandedFields.role} onToggle={toggleOptionalField}>
-              <CustomSelect value={draft.roleId || ''} options={roleOptions} onChange={updateRole} ariaLabel="Сфера жизни" />
-            </OptionalField>
-            <OptionalField id="project" label="Проект" isOpen={expandedFields.project} onToggle={toggleOptionalField}>
-              <CustomSelect value={draft.projectId || ''} options={projectOptions} onChange={updateProject} ariaLabel="Проект" />
-            </OptionalField>
-            <OptionalField id="scheduledDate" label="Запланировать" isOpen={expandedFields.scheduledDate} onToggle={toggleOptionalField}>
-              <input type="date" value={draft.scheduledDate} onChange={(event) => update('scheduledDate', event.target.value)} />
-            </OptionalField>
-            <OptionalField id="dueDate" label="Дедлайн" isOpen={expandedFields.dueDate} onToggle={toggleOptionalField}>
-              <input type="date" value={draft.dueDate} onChange={(event) => update('dueDate', event.target.value)} />
-            </OptionalField>
-            <OptionalField id="estimate" label="Оценка времени" isOpen={expandedFields.estimate} onToggle={toggleOptionalField}>
-              <div className="estimate-input">
-                <input type="number" min="0" max="1440" value={draft.estimate || ''} onChange={(event) => update('estimate', event.target.value)} placeholder="0" />
-                <span>мин</span>
-              </div>
-            </OptionalField>
+            <div className="task-optional-column">
+              <OptionalField id="role" label="Сфера жизни" isOpen={expandedFields.role} onToggle={toggleOptionalField}>
+                <CustomSelect value={draft.roleId || ''} options={roleOptions} onChange={updateRole} ariaLabel="Сфера жизни" />
+              </OptionalField>
+              <OptionalField id="scheduledDate" label="Запланировать" isOpen={expandedFields.scheduledDate} onToggle={toggleOptionalField}>
+                <input type="date" value={draft.scheduledDate} onChange={(event) => update('scheduledDate', event.target.value)} />
+              </OptionalField>
+              <OptionalField id="estimate" label="Оценка времени" isOpen={expandedFields.estimate} onToggle={toggleOptionalField}>
+                <div className="estimate-input">
+                  <input type="number" min="0" max="1440" value={draft.estimate || ''} onChange={(event) => update('estimate', event.target.value)} placeholder="0" />
+                  <span>мин</span>
+                </div>
+              </OptionalField>
+            </div>
+            <div className="task-optional-column">
+              <OptionalField id="project" label="Проект" isOpen={expandedFields.project} onToggle={toggleOptionalField}>
+                <CustomSelect value={draft.projectId || ''} options={projectOptions} onChange={updateProject} ariaLabel="Проект" />
+              </OptionalField>
+              <OptionalField id="dueDate" label="Дедлайн" isOpen={expandedFields.dueDate} onToggle={toggleOptionalField}>
+                <input type="date" value={draft.dueDate} onChange={(event) => update('dueDate', event.target.value)} />
+              </OptionalField>
+            </div>
           </div>
 
           <section className="manual-time-section">

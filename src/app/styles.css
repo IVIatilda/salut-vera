@@ -365,10 +365,15 @@ nav {
   stroke-width: 1.8;
 }
 
+.sidebar-footer {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+}
+
 .sidebar-note {
   display: grid;
   gap: 5px;
-  margin-top: auto;
   padding: 15px;
   border: 1px solid rgb(255 255 255 / 10%);
   border-radius: 14px;
@@ -1443,6 +1448,13 @@ main {
   margin-bottom: 16px;
 }
 
+.task-optional-column {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 9px;
+}
+
 .compact-core-fields {
   align-items: start;
   margin-top: 15px;
@@ -1918,6 +1930,29 @@ main {
   width: 100%;
 }
 
+.sidebar-focus .compact-focus-time {
+  width: 100%;
+  border: 1px solid rgb(255 255 255 / 10%);
+  background: rgb(255 255 255 / 7%);
+  box-shadow: none;
+}
+
+.sidebar-focus .compact-focus-time:hover,
+.sidebar-focus .compact-focus-time[aria-expanded="true"] {
+  background: rgb(255 255 255 / 13%);
+}
+
+.sidebar-focus .compact-focus-time.break-mode {
+  background: #29484b;
+}
+
+.sidebar-focus .compact-focus-popover {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 10px);
+  left: 0;
+}
+
 .focus-card {
   padding: 25px 25px 18px;
   border-radius: 22px;
@@ -2320,6 +2355,12 @@ main {
     padding-inline: 0;
   }
 
+  .sidebar-focus .compact-focus-time {
+    min-width: 0;
+    padding-inline: 5px;
+    font-size: 13px;
+  }
+
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -2335,7 +2376,39 @@ main {
   }
 
   .sidebar {
+    display: contents;
+  }
+
+  .sidebar > .brand,
+  .sidebar > nav,
+  .sidebar-note {
     display: none;
+  }
+
+  .sidebar-footer {
+    display: contents;
+  }
+
+  .sidebar-focus {
+    position: absolute;
+    z-index: 14;
+    top: 14px;
+    right: 72px;
+    width: 82px;
+  }
+
+  .sidebar-focus .compact-focus-time {
+    min-width: 82px;
+    padding-inline: 12px;
+    border: 0;
+    background: var(--ink);
+    font-size: 16px;
+    box-shadow: 0 7px 18px rgb(24 36 65 / 12%);
+  }
+
+  .sidebar-focus .compact-focus-time:hover,
+  .sidebar-focus .compact-focus-time[aria-expanded="true"] {
+    background: #253352;
   }
 
   .topbar {
@@ -2345,10 +2418,12 @@ main {
     padding: 12px 20px;
   }
 
-  .compact-focus-popover {
+  .sidebar-focus .compact-focus-popover {
     position: fixed;
     top: 60px;
     right: 16px;
+    bottom: auto;
+    left: auto;
   }
 
   .mobile-nav {
@@ -2523,6 +2598,16 @@ main {
   .task-optional-grid {
     grid-template-columns: 1fr;
   }
+
+  .task-optional-column {
+    display: contents;
+  }
+
+  .optional-task-field[data-field="role"] { order: 1; }
+  .optional-task-field[data-field="project"] { order: 2; }
+  .optional-task-field[data-field="scheduledDate"] { order: 3; }
+  .optional-task-field[data-field="dueDate"] { order: 4; }
+  .optional-task-field[data-field="estimate"] { order: 5; }
 
   .importance-options {
     grid-template-columns: repeat(4, minmax(38px, 1fr));

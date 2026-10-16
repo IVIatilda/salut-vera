@@ -492,10 +492,15 @@ function App() {
           ))}
         </nav>
 
-        <div className="sidebar-note">
-          <span className="eyebrow">Хранение</span>
-          <strong>На этом устройстве</strong>
-          <span>Данные доступны офлайн</span>
+        <div className="sidebar-footer">
+          <div className="sidebar-focus">
+            <PomodoroCard compact tasks={tasks} onFocusComplete={handleFocusComplete} />
+          </div>
+          <div className="sidebar-note">
+            <span className="eyebrow">Хранение</span>
+            <strong>На этом устройстве</strong>
+            <span>Данные доступны офлайн</span>
+          </div>
         </div>
       </aside>
 
@@ -507,7 +512,6 @@ function App() {
             </span>
           </div>
           <div className="topbar-tools">
-            <PomodoroCard compact tasks={tasks} onFocusComplete={handleFocusComplete} />
             <button className="avatar" type="button" aria-label="Открыть профиль">А</button>
           </div>
         </header>
