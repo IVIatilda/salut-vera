@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateDailyPlannedMinutes,
   createTask,
+  createSubtaskSummaryMap,
   normalizeTask,
   taskMatchesView,
   truncateTaskTitle,
@@ -89,5 +90,34 @@ describe('task model', () => {
     ];
 
     expect(calculateDailyPlannedMinutes(tasks, '2026-10-16')).toBe(60);
+  });
+
+  it('summarizes time and urgency from active nested tasks', () => {
+    const tasks = [
+      { id: 'parent', status: 'planned', estimate: 0 },
+      { id: 'child-1', parentTaskId: 'parent', status: 'planned', estimate: 60, isUrgent: true },
+      { id: 'child-2', parentTaskId: 'parent', status: 'planned', estimate: 1200, importance: 'high' },
+    ];
+
+    expect(createSubtaskSummaryMap(tasks).get('parent')).toEqual({
+      estimatedMinutes: 1260,
+      isApproximate: false,
+      hasUrgent: true,
+      hasImportant: true,
+    });
+  });
+
+  it('marks a subtask estimate as approximate when an active child is not estimated', () => {
+    const tasks = [
+      { id: 'parent', status: 'planned', estimate: 0 },
+      { id: 'estimated', parentTaskId: 'parent', status: 'planned', estimate: 30 },
+      { id: 'unknown', parentTaskId: 'parent', status: 'planned', estimate: 0 },
+      { id: 'done', parentTaskId: 'parent', status: 'completed', estimate: 0, isUrgent: true },
+    ];
+    const summary = createSubtaskSummaryMap(tasks).get('parent');
+
+    expect(summary.estimatedMinutes).toBe(30);
+    expect(summary.isApproximate).toBe(true);
+    expect(summary.hasUrgent).toBe(false);
   });
 });

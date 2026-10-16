@@ -1,5 +1,11 @@
-import { useState } from 'react';
-import { isTaskCompleted, localDateKey, sortTasks, taskMatchesView } from '../model/task-model.js';
+import { useMemo, useState } from 'react';
+import {
+  createSubtaskSummaryMap,
+  isTaskCompleted,
+  localDateKey,
+  sortTasks,
+  taskMatchesView,
+} from '../model/task-model.js';
 
 const FILTERS = [
   ['active', 'Все'],
@@ -31,12 +37,36 @@ function CheckIcon() {
   );
 }
 
+function DescendantIndicators({ hasUrgent, hasImportant }) {
+  if (!hasUrgent && !hasImportant) return null;
+
+  return (
+    <span className="task-descendant-indicators">
+      {hasUrgent && (
+        <span className="task-descendant-indicator urgent" role="img" aria-label="В подзадачах есть срочные задачи" title="В подзадачах есть срочные задачи">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M9.2 1.5 3.8 9h3.5l-.5 5.5 5.4-7.7H8.7z" />
+          </svg>
+        </span>
+      )}
+      {hasImportant && (
+        <span className="task-descendant-indicator important" role="img" aria-label="В подзадачах есть важные задачи" title="В подзадачах есть важные задачи">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="m8 1.5 1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.2l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />
+          </svg>
+        </span>
+      )}
+    </span>
+  );
+}
+
 function TaskRow({
   task,
   project,
   children,
   hasSubtasks,
   isExpanded,
+  subtaskSummary,
   onOpen,
   onToggle,
   onToggleExpanded,
@@ -61,6 +91,10 @@ function TaskRow({
         <div className="task-content">
           <button className="task-title" type="button" onClick={() => onOpen(task)}>
             <strong>{task.title}</strong>
+            <DescendantIndicators
+              hasUrgent={subtaskSummary.hasUrgent}
+              hasImportant={subtaskSummary.hasImportant}
+            />
           </button>
           <span className="task-meta">
             {task.isUrgent && <i className="task-tag urgent">Срочно</i>}
@@ -70,6 +104,15 @@ function TaskRow({
             {task.scheduledDate && <i>{formatShortDate(task.scheduledDate)}</i>}
             {task.dueDate && <i className={overdue ? 'overdue' : ''}>до {formatShortDate(task.dueDate)}</i>}
             {task.estimate > 0 && <i>{task.estimate} мин</i>}
+            {task.estimate <= 0 && hasSubtasks && (subtaskSummary.estimatedMinutes > 0 || subtaskSummary.isApproximate) && (
+              <i
+                className={subtaskSummary.isApproximate ? 'task-estimate approximate' : 'task-estimate'}
+                title={subtaskSummary.isApproximate ? 'Не у всех незавершённых подзадач указано плановое время' : undefined}
+              >
+                {subtaskSummary.isApproximate && '≈ '}
+                {subtaskSummary.estimatedMinutes > 0 ? `${subtaskSummary.estimatedMinutes} мин` : '? мин'}
+              </i>
+            )}
             {task.trackedSeconds > 0 && <i>{formatTrackedTime(task.trackedSeconds)} в фокусе</i>}
           </span>
         </div>
@@ -105,6 +148,18 @@ export default function TaskList({
   const [title, setTitle] = useState('');
   const [expandedTaskIds, setExpandedTaskIds] = useState(() => new Set());
   const roots = sortTasks(tasks.filter((task) => taskMatchesView(task, view, filter)));
+  const childrenByParentId = useMemo(() => {
+    const grouped = new Map();
+    tasks.forEach((task) => {
+      if (!task.parentTaskId || task.status === 'cancelled') return;
+      const children = grouped.get(task.parentTaskId) || [];
+      children.push(task);
+      grouped.set(task.parentTaskId, children);
+    });
+    grouped.forEach((children, parentId) => grouped.set(parentId, sortTasks(children)));
+    return grouped;
+  }, [tasks]);
+  const subtaskSummaries = useMemo(() => createSubtaskSummaryMap(tasks), [tasks]);
 
   function submitTask(event) {
     event.preventDefault();
@@ -124,9 +179,15 @@ export default function TaskList({
   }
 
   function renderTask(task, nested = false) {
-    const subtasks = sortTasks(tasks.filter((item) => item.parentTaskId === task.id && item.status !== 'cancelled'));
+    const subtasks = childrenByParentId.get(task.id) || [];
     const hasSubtasks = subtasks.length > 0;
     const isExpanded = expandedTaskIds.has(task.id);
+    const subtaskSummary = subtaskSummaries.get(task.id) || {
+      estimatedMinutes: 0,
+      isApproximate: false,
+      hasUrgent: false,
+      hasImportant: false,
+    };
     return (
       <TaskRow
         key={task.id}
@@ -134,6 +195,7 @@ export default function TaskList({
         project={projects.find((project) => project.id === task.projectId)}
         hasSubtasks={hasSubtasks}
         isExpanded={isExpanded}
+        subtaskSummary={subtaskSummary}
         nested={nested}
         onOpen={onOpen}
         onToggle={onToggle}

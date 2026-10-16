@@ -67,6 +67,46 @@ export function isTaskCompleted(task) {
   return task.status === 'completed' || task.completed;
 }
 
+export function createSubtaskSummaryMap(tasks) {
+  const childrenByParentId = new Map();
+  const summaries = new Map();
+  const visiting = new Set();
+
+  tasks.forEach((task) => {
+    if (!task.parentTaskId || task.status === 'cancelled') return;
+    const children = childrenByParentId.get(task.parentTaskId) || [];
+    children.push(task);
+    childrenByParentId.set(task.parentTaskId, children);
+  });
+
+  function summarize(parentId) {
+    if (summaries.has(parentId)) return summaries.get(parentId);
+    if (visiting.has(parentId)) {
+      return { estimatedMinutes: 0, isApproximate: false, hasUrgent: false, hasImportant: false };
+    }
+
+    visiting.add(parentId);
+    const summary = (childrenByParentId.get(parentId) || []).reduce((total, child) => {
+      const nested = summarize(child.id);
+      const isActive = !isTaskCompleted(child);
+      const ownEstimate = isActive ? Math.max(0, Number(child.estimate) || 0) : 0;
+
+      return {
+        estimatedMinutes: total.estimatedMinutes + Math.max(ownEstimate, nested.estimatedMinutes),
+        isApproximate: total.isApproximate || nested.isApproximate || (isActive && ownEstimate === 0),
+        hasUrgent: total.hasUrgent || nested.hasUrgent || (isActive && Boolean(child.isUrgent)),
+        hasImportant: total.hasImportant || nested.hasImportant || (isActive && child.importance === 'high'),
+      };
+    }, { estimatedMinutes: 0, isApproximate: false, hasUrgent: false, hasImportant: false });
+    visiting.delete(parentId);
+    summaries.set(parentId, summary);
+    return summary;
+  }
+
+  tasks.forEach((task) => summarize(task.id));
+  return summaries;
+}
+
 export function calculateDailyPlannedMinutes(tasks, today = localDateKey()) {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const childrenByParentId = new Map();
