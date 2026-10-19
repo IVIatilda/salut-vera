@@ -96,6 +96,7 @@ export default function PomodoroCard({ tasks, onFocusComplete, compact = false }
   const [isSaving, setIsSaving] = useState(false);
   const finishingRef = useRef(false);
   const compactRef = useRef(null);
+  const audioContextRef = useRef(null);
   const availableTasks = tasks.filter((task) => !task.completed && task.status !== 'cancelled');
   const selectedTask = tasks.find((task) => task.id === timer.taskId);
   const taskOptions = [
@@ -115,6 +116,31 @@ export default function PomodoroCard({ tasks, onFocusComplete, compact = false }
       // The timer still works in memory when browser storage is unavailable.
     }
   }, [timer]);
+
+  useEffect(() => {
+    function unlockAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+        audioContextRef.current = new AudioContext();
+      }
+      audioContextRef.current.resume().catch(() => {});
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    }
+
+    window.addEventListener('pointerdown', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+      const audioContext = audioContextRef.current;
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close().catch(() => {});
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (timer.taskId || availableTasks.length === 0 || isActive) return;
@@ -165,6 +191,7 @@ export default function PomodoroCard({ tasks, onFocusComplete, compact = false }
       if (finishingRef.current) return;
 
       finishingRef.current = true;
+      if (timer.mode === 'focus') playCompletionSound();
       setIsSaving(true);
       setSaveError('');
       try {
@@ -201,6 +228,7 @@ export default function PomodoroCard({ tasks, onFocusComplete, compact = false }
 
   function startTimer() {
     if (timer.mode === 'focus' && !timer.taskId) return;
+    unlockCompletionSound();
     setSaveError('');
     setTimer((current) => ({
       ...current,
@@ -208,6 +236,49 @@ export default function PomodoroCard({ tasks, onFocusComplete, compact = false }
       startedAt: current.startedAt || new Date().toISOString(),
       endAt: Date.now() + current.remainingSeconds * 1000,
     }));
+  }
+
+  function getAudioContext() {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return null;
+
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new AudioContext();
+    }
+    return audioContextRef.current;
+  }
+
+  function unlockCompletionSound() {
+    const audioContext = getAudioContext();
+    audioContext?.resume().catch(() => {});
+  }
+
+  async function playCompletionSound() {
+    try {
+      const audioContext = getAudioContext();
+      if (!audioContext) return;
+      await audioContext.resume();
+
+      const startedAt = audioContext.currentTime;
+      [659.25, 783.99, 987.77].forEach((frequency, index) => {
+        const noteStart = startedAt + index * 0.16;
+        const noteEnd = noteStart + 0.34;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, noteStart);
+        gain.gain.setValueAtTime(0.0001, noteStart);
+        gain.gain.exponentialRampToValueAtTime(0.07, noteStart + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(noteStart);
+        oscillator.stop(noteEnd);
+      });
+    } catch {
+      // A blocked or unavailable audio notification must not interrupt the timer.
+    }
   }
 
   function pauseTimer() {

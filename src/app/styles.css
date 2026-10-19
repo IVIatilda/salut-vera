@@ -495,7 +495,8 @@ main {
 }
 
 .projects-page,
-.roles-page {
+.roles-page,
+.habits-page {
   margin-top: 30px;
 }
 
@@ -609,6 +610,521 @@ main {
 .role-stats strong {
   color: var(--ink);
   font-size: 11px;
+}
+
+.habits-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.habit-today-summary {
+  display: grid;
+  grid-template-columns: minmax(180px, .55fr) minmax(240px, 1fr);
+  align-items: center;
+  gap: 28px;
+  padding: 23px 26px;
+  border: 1px solid #cdd8ef;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 15% 20%, rgb(111 142 219 / 18%), transparent 36%),
+    linear-gradient(135deg, #f0f5ff 0%, #fbfcff 72%);
+}
+
+.habit-today-summary > div {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.habit-today-summary > div > span {
+  max-width: 76px;
+}
+
+.habit-today-summary > div > strong {
+  color: var(--ink);
+  font-family: "Arial Rounded MT Bold", "Avenir Next", sans-serif;
+  font-size: 46px;
+  line-height: 1;
+  letter-spacing: -.055em;
+}
+
+.habit-today-summary strong i {
+  padding-inline: 3px;
+  color: #8390aa;
+  font-size: 27px;
+  font-style: normal;
+}
+
+.habit-today-summary p {
+  max-width: 560px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.habit-grid {
+  display: grid;
+  gap: 13px;
+}
+
+.habit-card {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.1fr) minmax(310px, 1fr);
+  gap: 8px 28px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--mint);
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: 0 8px 24px rgb(24 36 65 / 4%);
+}
+
+.habit-card.reduce {
+  border-left-color: #d9a441;
+}
+
+.habit-card-topline {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.habit-direction {
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: #277d69;
+  background: #e7f7f2;
+  font-size: 9px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.habit-direction.reduce {
+  color: #735b17;
+  background: #fff5d4;
+}
+
+.habit-card-title {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  min-width: 0;
+  max-width: 100%;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+}
+
+.habit-card-title strong {
+  overflow: hidden;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.habit-card-title:hover strong {
+  color: #314d83;
+}
+
+.habit-card-title i {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.habit-identity {
+  align-self: start;
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.habit-card-topline,
+.habit-card-title,
+.habit-identity {
+  grid-column: 1;
+}
+
+.habit-week {
+  grid-row: 1 / span 3;
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(32px, 1fr));
+  align-items: stretch;
+  gap: 6px;
+}
+
+.habit-day {
+  display: grid;
+  min-height: 63px;
+  padding: 8px 4px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #a3adbf;
+  background: #f1f3f7;
+}
+
+.habit-day i {
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.habit-day b {
+  font-size: 14px;
+}
+
+.habit-day.scheduled {
+  color: #60708d;
+  background: #edf2fb;
+}
+
+.habit-day.done {
+  color: #185f50;
+  background: #ccefe5;
+}
+
+.habit-day.partial {
+  color: #735b17;
+  background: #fff0bd;
+}
+
+.habit-day.episode {
+  color: #9d493c;
+  background: #ffe4de;
+}
+
+.habit-day.future {
+  opacity: .55;
+}
+
+.habit-day.today {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px #fff inset;
+}
+
+.habit-card-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 7px;
+  padding-top: 14px;
+  border-top: 1px solid #e8ecf3;
+}
+
+.habit-week-progress {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 7px;
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.habit-week-progress strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.habit-week-progress i {
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--role-color) 22%, white);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.habit-done-button,
+.habit-reduce-actions > button {
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid #b9c5d7;
+  border-radius: 10px;
+  color: var(--ink);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.habit-done-button:hover,
+.habit-done-button.done {
+  border-color: var(--mint);
+  color: #185f50;
+  background: #dff5ef;
+}
+
+.habit-counter,
+.habit-reduce-actions,
+.habit-quantity-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.habit-complete-target {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  flex: 0 0 39px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #9fb0ca;
+  border-radius: 11px;
+  color: #35527d;
+  background: #f4f7fc;
+}
+
+.habit-complete-target:hover:not(:disabled) {
+  border-color: var(--mint);
+  color: #185f50;
+  background: #e7f7f2;
+}
+
+.habit-complete-target.done {
+  border-color: var(--mint);
+  color: #fff;
+  background: var(--mint);
+  opacity: 1;
+}
+
+.habit-complete-target svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.habit-counter {
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+}
+
+.habit-counter button {
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--mist);
+  font-size: 18px;
+}
+
+.habit-counter button:disabled {
+  cursor: default;
+  opacity: .38;
+}
+
+.habit-counter strong {
+  min-width: 62px;
+  color: var(--ink);
+  font-size: 11px;
+  text-align: center;
+}
+
+.habit-reduce-actions .clean.active {
+  border-color: var(--mint);
+  color: #185f50;
+  background: #dff5ef;
+}
+
+.habit-episode-counter {
+  border-color: #e7c3bb;
+  color: #9d493c;
+  background: #fff8f6;
+}
+
+.habit-episode-counter button {
+  color: #9d493c;
+  background: #ffe8e2;
+}
+
+.habit-episode-counter strong {
+  color: #9d493c;
+}
+
+.habit-empty {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+}
+
+.habit-direction-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 19px;
+}
+
+.habit-direction-choice button {
+  display: grid;
+  gap: 4px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: var(--ink);
+  background: #fff;
+  text-align: left;
+}
+
+.habit-direction-choice button span {
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.habit-direction-choice button.active.build {
+  border-color: var(--mint);
+  background: #eaf8f4;
+  box-shadow: 0 0 0 3px rgb(73 184 154 / 13%);
+}
+
+.habit-direction-choice button.active.reduce {
+  border-color: #d9a441;
+  background: #fff8df;
+  box-shadow: 0 0 0 3px rgb(217 164 65 / 14%);
+}
+
+.habit-schedule {
+  margin: 1px 0 18px;
+  padding: 0;
+  border: 0;
+}
+
+.habit-schedule legend {
+  margin-bottom: 8px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.habit-schedule > div {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 7px;
+}
+
+.habit-schedule button {
+  min-height: 38px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink-soft);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.habit-schedule button.active {
+  border-color: #8298c4;
+  color: var(--ink);
+  background: #e9effb;
+}
+
+.habit-target-row {
+  align-items: start;
+}
+
+.input-with-unit {
+  position: relative;
+  display: block;
+}
+
+.input-with-unit input {
+  padding-right: 48px;
+}
+
+.input-with-unit i {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-style: normal;
+  transform: translateY(-50%);
+}
+
+.habit-system-details {
+  margin-top: 2px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8faff;
+}
+
+.habit-system-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 15px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.habit-system-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.habit-system-details summary span {
+  display: grid;
+  gap: 3px;
+}
+
+.habit-system-details summary strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.habit-system-details summary i {
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.habit-system-details summary b {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--mist);
+  transition: transform 150ms ease;
+}
+
+.habit-system-details[open] summary b {
+  transform: rotate(45deg);
+}
+
+.habit-system-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+  padding: 3px 15px 1px;
+  border-top: 1px solid var(--line);
+}
+
+.habit-system-grid .wide {
+  grid-column: 1 / -1;
 }
 
 .project-grid {
@@ -1932,18 +2448,35 @@ main {
 
 .sidebar-focus .compact-focus-time {
   width: 100%;
-  border: 1px solid rgb(255 255 255 / 10%);
-  background: rgb(255 255 255 / 7%);
-  box-shadow: none;
+  height: 58px;
+  border: 1px solid rgb(255 255 255 / 28%);
+  border-radius: 14px;
+  color: var(--ink);
+  background: var(--coral);
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+  box-shadow: 0 10px 24px rgb(255 107 95 / 28%), inset 0 1px 0 rgb(255 255 255 / 24%);
+  transition: background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
 .sidebar-focus .compact-focus-time:hover,
 .sidebar-focus .compact-focus-time[aria-expanded="true"] {
-  background: rgb(255 255 255 / 13%);
+  background: #ff8177;
+  box-shadow: 0 12px 28px rgb(255 107 95 / 38%), inset 0 1px 0 rgb(255 255 255 / 28%);
+  transform: translateY(-1px);
 }
 
 .sidebar-focus .compact-focus-time.break-mode {
-  background: #29484b;
+  background: #5ac8aa;
+  box-shadow: 0 10px 24px rgb(73 184 154 / 28%), inset 0 1px 0 rgb(255 255 255 / 24%);
+}
+
+.sidebar-focus .compact-focus-time.break-mode:hover,
+.sidebar-focus .compact-focus-time.break-mode[aria-expanded="true"] {
+  background: #71d2b8;
+  box-shadow: 0 12px 28px rgb(73 184 154 / 38%), inset 0 1px 0 rgb(255 255 255 / 28%);
 }
 
 .sidebar-focus .compact-focus-popover {
@@ -2357,8 +2890,9 @@ main {
 
   .sidebar-focus .compact-focus-time {
     min-width: 0;
+    height: 48px;
     padding-inline: 5px;
-    font-size: 13px;
+    font-size: 15px;
   }
 
   .dashboard-grid {
@@ -2394,21 +2928,22 @@ main {
     z-index: 14;
     top: 14px;
     right: 72px;
-    width: 82px;
+    width: 104px;
   }
 
   .sidebar-focus .compact-focus-time {
-    min-width: 82px;
+    min-width: 104px;
+    height: 42px;
     padding-inline: 12px;
-    border: 0;
-    background: var(--ink);
-    font-size: 16px;
-    box-shadow: 0 7px 18px rgb(24 36 65 / 12%);
+    border: 1px solid rgb(23 34 59 / 12%);
+    background: var(--coral);
+    font-size: 20px;
+    box-shadow: 0 8px 20px rgb(255 107 95 / 24%);
   }
 
   .sidebar-focus .compact-focus-time:hover,
   .sidebar-focus .compact-focus-time[aria-expanded="true"] {
-    background: #253352;
+    background: #ff8177;
   }
 
   .topbar {
@@ -2498,7 +3033,8 @@ main {
   }
 
   .projects-page,
-  .roles-page {
+  .roles-page,
+  .habits-page {
     margin-top: 22px;
   }
 
@@ -2511,6 +3047,71 @@ main {
   .project-grid,
   .role-grid {
     grid-template-columns: 1fr;
+  }
+
+  .habit-today-summary {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 19px;
+  }
+
+  .habit-card {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 18px 16px;
+  }
+
+  .habit-card-topline,
+  .habit-card-title,
+  .habit-identity,
+  .habit-week,
+  .habit-card-footer {
+    grid-row: auto;
+    grid-column: 1;
+  }
+
+  .habit-week {
+    margin-top: 8px;
+  }
+
+  .habit-day {
+    min-height: 55px;
+  }
+
+  .habit-card-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .habit-done-button,
+  .habit-counter,
+  .habit-quantity-actions,
+  .habit-reduce-actions {
+    width: 100%;
+  }
+
+  .habit-counter,
+  .habit-quantity-actions,
+  .habit-reduce-actions {
+    justify-content: center;
+  }
+
+  .habit-quantity-actions .habit-counter {
+    width: auto;
+    flex: 1;
+  }
+
+  .habit-reduce-actions > button {
+    flex: 1;
+  }
+
+  .habit-direction-choice,
+  .habit-system-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .habit-system-grid .wide {
+    grid-column: 1;
   }
 
   .tasks-page .task-panel {

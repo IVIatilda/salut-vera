@@ -1,9 +1,11 @@
 const DB_NAME = 'vera-organizer';
-const DB_VERSION = 4;
+const DB_VERSION = 6;
 const TASK_STORE = 'tasks';
 const TIME_ENTRY_STORE = 'timeEntries';
 const PROJECT_STORE = 'projects';
 const ROLE_STORE = 'roles';
+const HABIT_STORE = 'habits';
+const HABIT_LOG_STORE = 'habitLogs';
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -32,6 +34,25 @@ function openDatabase() {
         const roleStore = database.createObjectStore(ROLE_STORE, { keyPath: 'id' });
         roleStore.createIndex('createdAt', 'createdAt');
         roleStore.createIndex('status', 'status');
+      }
+
+      if (!database.objectStoreNames.contains(HABIT_STORE)) {
+        const habitStore = database.createObjectStore(HABIT_STORE, { keyPath: 'id' });
+        habitStore.createIndex('createdAt', 'createdAt');
+        habitStore.createIndex('status', 'status');
+        habitStore.createIndex('roleId', 'roleId');
+      }
+
+      if (!database.objectStoreNames.contains(HABIT_LOG_STORE)) {
+        const habitLogStore = database.createObjectStore(HABIT_LOG_STORE, { keyPath: 'id' });
+        habitLogStore.createIndex('habitId', 'habitId');
+        habitLogStore.createIndex('occurredOn', 'occurredOn');
+        habitLogStore.createIndex('occurredAt', 'occurredAt');
+      } else {
+        const habitLogStore = request.transaction.objectStore(HABIT_LOG_STORE);
+        if (!habitLogStore.indexNames.contains('occurredAt')) {
+          habitLogStore.createIndex('occurredAt', 'occurredAt');
+        }
       }
     };
 
@@ -103,4 +124,30 @@ export function saveRole(role) {
 
 export function removeRole(roleId) {
   return runTransaction(ROLE_STORE, 'readwrite', (store) => store.delete(roleId));
+}
+
+export function listHabits() {
+  return runTransaction(HABIT_STORE, 'readonly', (store) => store.getAll()).then((habits) =>
+    habits.sort((first, second) => first.createdAt.localeCompare(second.createdAt)),
+  );
+}
+
+export function saveHabit(habit) {
+  return runTransaction(HABIT_STORE, 'readwrite', (store) => store.put(habit));
+}
+
+export function removeHabit(habitId) {
+  return runTransaction(HABIT_STORE, 'readwrite', (store) => store.delete(habitId));
+}
+
+export function listHabitLogs() {
+  return runTransaction(HABIT_LOG_STORE, 'readonly', (store) => store.getAll());
+}
+
+export function saveHabitLog(log) {
+  return runTransaction(HABIT_LOG_STORE, 'readwrite', (store) => store.put(log));
+}
+
+export function removeHabitLog(logId) {
+  return runTransaction(HABIT_LOG_STORE, 'readwrite', (store) => store.delete(logId));
 }

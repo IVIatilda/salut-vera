@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateDailyPlannedMinutes,
+  countTasksCompletedOnDate,
   createTask,
   createSubtaskSummaryMap,
   getTaskDescendantIds,
@@ -145,5 +146,15 @@ describe('task model', () => {
     ];
 
     expect(Array.from(getTaskDescendantIds(tasks, 'parent')).sort()).toEqual(['child', 'grandchild']);
+  });
+
+  it('counts every task completed today including nested tasks', () => {
+    const tasks = [
+      { id: 'parent', status: 'planned', scheduledDate: '2026-10-17' },
+      { id: 'child', parentTaskId: 'parent', status: 'completed', completed: true, completedAt: '2026-10-17T12:00:00.000Z' },
+      { id: 'old', status: 'completed', completed: true, completedAt: '2026-10-16T12:00:00.000Z' },
+    ];
+
+    expect(countTasksCompletedOnDate(tasks, '2026-10-17')).toBe(1);
   });
 });

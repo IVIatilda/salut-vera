@@ -3,6 +3,10 @@ import {
   listProjects,
   listRoles,
   listTasks,
+  listHabits,
+  listHabitLogs,
+  removeHabit,
+  removeHabitLog,
   removeProject,
   removeRole,
   removeTask,
@@ -10,7 +14,18 @@ import {
   saveRole,
   saveTask,
   saveTimeEntry,
+  saveHabit,
+  saveHabitLog,
 } from '../shared/storage/indexed-db.js';
+import HabitEditor from '../features/habits/components/HabitEditor.jsx';
+import HabitList from '../features/habits/components/HabitList.jsx';
+import {
+  createHabit,
+  createHabitLog,
+  getLatestHabitEpisode,
+  normalizeHabit,
+  normalizeHabitLog,
+} from '../features/habits/model/habit-model.js';
 import PomodoroCard from '../features/focus/components/PomodoroCard.jsx';
 import ProjectEditor from '../features/projects/components/ProjectEditor.jsx';
 import ProjectList from '../features/projects/components/ProjectList.jsx';
@@ -23,16 +38,15 @@ import { createRole, normalizeRole, ROLE_COLORS } from '../features/roles/model/
 import veraLogo from '../assets/images/vera-logo.png';
 import {
   calculateDailyPlannedMinutes,
+  countTasksCompletedOnDate,
   createTask,
   isTaskCompleted,
   localDateKey,
   normalizeTask,
-  taskMatchesView,
 } from '../features/tasks/model/task-model.js';
 
 const NAV_ITEMS = [
   ['today', 'Сегодня'],
-  ['inbox', 'Входящие'],
   ['tasks', 'Задачи'],
   ['projects', 'Проекты'],
   ['roles', 'Сферы жизни'],
@@ -44,7 +58,7 @@ const NAV_ITEMS = [
   ['review', 'Обзор'],
 ];
 
-const ENABLED_NAV_ITEMS = new Set(['today', 'inbox', 'tasks', 'projects', 'roles']);
+const ENABLED_NAV_ITEMS = new Set(['today', 'tasks', 'projects', 'roles', 'habits']);
 
 const EXAMPLE_TASKS = [
   {
@@ -89,7 +103,6 @@ function greetingForHour(hour) {
 function Icon({ name }) {
   const paths = {
     today: 'M4 5.5h16M7 3v5m10-5v5M5 9h14v11H5z',
-    inbox: 'M4 5h16v14H4zm0 9h5l1.5 2h3L15 14h5',
     tasks: 'm5 7 2 2 4-4m2 3h6M5 15l2 2 4-4m2 3h6',
     projects: 'M4 7h6l2 2h8v10H4zM4 7V5h6l2 2',
     roles: 'M12 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6 20v-2a6 6 0 0 1 12 0v2M5 7a2 2 0 1 0 0 4m14-4a2 2 0 1 1 0 4',
@@ -117,6 +130,8 @@ function App() {
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [habits, setHabits] = useState([]);
+  const [habitLogs, setHabitLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeNav, setActiveNav] = useState('today');
   const [taskFilter, setTaskFilter] = useState('active');
@@ -128,10 +143,12 @@ function App() {
   const [newProjectDraft, setNewProjectDraft] = useState(null);
   const [editingRoleId, setEditingRoleId] = useState(null);
   const [newRoleDraft, setNewRoleDraft] = useState(null);
+  const [editingHabitId, setEditingHabitId] = useState(null);
+  const [newHabitDraft, setNewHabitDraft] = useState(null);
 
   useEffect(() => {
-    Promise.all([listTasks(), listProjects(), listRoles()])
-      .then(async ([loadedTasks, storedProjects, storedRoles]) => {
+    Promise.all([listTasks(), listProjects(), listRoles(), listHabits(), listHabitLogs()])
+      .then(async ([loadedTasks, storedProjects, storedRoles, storedHabits, storedHabitLogs]) => {
         const storedTasks = loadedTasks.length ? loadedTasks : EXAMPLE_TASKS;
         const normalizedTasks = storedTasks.map((task) => normalizeTask(task));
         const normalizedProjects = storedProjects.map(normalizeProject);
@@ -193,6 +210,8 @@ function App() {
         setTasks(migratedTasks);
         setProjects(migratedProjects);
         setRoles(allRoles);
+        setHabits(storedHabits.map(normalizeHabit));
+        setHabitLogs(storedHabitLogs.map(normalizeHabitLog));
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -230,12 +249,12 @@ function App() {
   }, [tasks]);
 
   const todayKey = localDateKey(now);
-  const todayTasks = tasks.filter((task) => taskMatchesView(task, 'today', 'active', todayKey));
-  const completedCount = todayTasks.filter(isTaskCompleted).length;
+  const completedCount = countTasksCompletedOnDate(tasks, todayKey);
   const plannedMinutes = calculateDailyPlannedMinutes(tasks, todayKey);
   const editingTask = newTaskDraft || restoredTaskDraft || tasks.find((task) => task.id === editingTaskId);
   const editingProject = newProjectDraft || projects.find((project) => project.id === editingProjectId);
   const editingRole = newRoleDraft || roles.find((role) => role.id === editingRoleId);
+  const editingHabit = newHabitDraft || habits.find((habit) => habit.id === editingHabitId);
 
   async function addTask(title) {
     const task = createTask(title, activeNav, todayKey);
@@ -309,6 +328,76 @@ function App() {
     setEditingRoleId(null);
   }
 
+  function createNewHabit() {
+    setEditingHabitId(null);
+    setNewHabitDraft(createHabit());
+  }
+
+  function openHabitEditor(habit) {
+    setNewHabitDraft(null);
+    setEditingHabitId(habit.id);
+  }
+
+  function closeHabitEditor() {
+    setNewHabitDraft(null);
+    setEditingHabitId(null);
+  }
+
+  async function updateHabit(habit) {
+    await saveHabit(habit);
+    setHabits((current) => (
+      current.some((item) => item.id === habit.id)
+        ? current.map((item) => (item.id === habit.id ? habit : item))
+        : [...current, habit]
+    ));
+    closeHabitEditor();
+  }
+
+  async function deleteHabit(habit) {
+    const linkedLogs = habitLogs.filter((log) => log.habitId === habit.id);
+    await Promise.all([removeHabit(habit.id), ...linkedLogs.map((log) => removeHabitLog(log.id))]);
+    setHabits((current) => current.filter((item) => item.id !== habit.id));
+    setHabitLogs((current) => current.filter((log) => log.habitId !== habit.id));
+    closeHabitEditor();
+  }
+
+  async function changeHabitLog(habit, action, value = 0) {
+    const logId = `${habit.id}:${todayKey}`;
+    if (action === 'clear' || (action === 'value' && value <= 0)) {
+      await removeHabitLog(logId);
+      setHabitLogs((current) => current.filter((log) => log.id !== logId));
+      return;
+    }
+
+    if (action === 'removeEpisode') {
+      const latestEpisode = getLatestHabitEpisode(habitLogs, habit.id, todayKey);
+      if (!latestEpisode) return;
+      await removeHabitLog(latestEpisode.id);
+      setHabitLogs((current) => current.filter((log) => log.id !== latestEpisode.id));
+      return;
+    }
+
+    if (action === 'episode') {
+      const episode = createHabitLog(habit.id, todayKey, 'episode', 1, new Date().toISOString());
+      await Promise.all([removeHabitLog(logId), saveHabitLog(episode)]);
+      setHabitLogs((current) => [
+        ...current.filter((log) => log.id !== logId),
+        episode,
+      ]);
+      return;
+    }
+
+    const status = action === 'value' && value < habit.targetValue ? 'partial' : 'done';
+    const nextValue = action === 'done' ? (habit.direction === 'reduce' ? 0 : habit.targetValue) : value;
+    const log = createHabitLog(habit.id, todayKey, status, nextValue);
+    await saveHabitLog(log);
+    setHabitLogs((current) => (
+      current.some((item) => item.id === log.id)
+        ? current.map((item) => (item.id === log.id ? log : item))
+        : [...current, log]
+    ));
+  }
+
   async function updateRole(role) {
     const linkedTasks = tasks.filter((task) => task.roleId === role.id);
     const linkedProjects = projects.filter((project) => project.roleId === role.id);
@@ -335,16 +424,22 @@ function App() {
     const detachedProjects = projects
       .filter((project) => project.roleId === role.id)
       .map((project) => ({ ...project, roleId: null, area: 'Без сферы', updatedAt }));
+    const detachedHabits = habits
+      .filter((habit) => habit.roleId === role.id)
+      .map((habit) => ({ ...habit, roleId: null, updatedAt }));
     const tasksById = new Map(detachedTasks.map((task) => [task.id, task]));
     const projectsById = new Map(detachedProjects.map((project) => [project.id, project]));
+    const habitsById = new Map(detachedHabits.map((habit) => [habit.id, habit]));
     await Promise.all([
       removeRole(role.id),
       ...detachedTasks.map(saveTask),
       ...detachedProjects.map(saveProject),
+      ...detachedHabits.map(saveHabit),
     ]);
     setRoles((current) => current.filter((item) => item.id !== role.id));
     setTasks((current) => current.map((task) => tasksById.get(task.id) || task));
     setProjects((current) => current.map((project) => projectsById.get(project.id) || project));
+    setHabits((current) => current.map((habit) => habitsById.get(habit.id) || habit));
     closeRoleEditor();
   }
 
@@ -586,16 +681,23 @@ function App() {
                 Добавить сферу
               </button>
             </section>
+          ) : activeNav === 'habits' ? (
+            <section className="module-header habits-header">
+              <div className="module-header-copy">
+                <span className="eyebrow">Маленькие действия</span>
+                <h1>Привычки</h1>
+                <p>Создавайте систему, к которой легко вернуться, даже если один день выпал.</p>
+              </div>
+              <button className="new-task-button" onClick={createNewHabit} type="button">
+                Добавить привычку
+              </button>
+            </section>
           ) : (
             <section className="module-header">
               <div className="module-header-copy">
                 <span className="eyebrow">Задачи</span>
-                <h1>{activeNav === 'inbox' ? 'Входящие' : 'Все задачи'}</h1>
-                <p>
-                  {activeNav === 'inbox'
-                    ? 'Сначала зафиксируйте мысль. Разобрать и запланировать её можно позже.'
-                    : 'Единое место для запланированных, будущих и завершённых задач.'}
-                </p>
+                <h1>Все задачи</h1>
+                <p>Единое место для запланированных, будущих и завершённых задач.</p>
               </div>
               <button className="new-task-button" onClick={() => createDetailedTask()} type="button">
                 Добавить задачу
@@ -655,6 +757,18 @@ function App() {
             <div className="roles-page">
               <RoleList roles={roles} tasks={tasks} projects={projects} onOpen={openRoleEditor} />
             </div>
+          ) : activeNav === 'habits' ? (
+            <div className="habits-page">
+              <HabitList
+                habits={habits}
+                logs={habitLogs}
+                roles={roles}
+                today={todayKey}
+                isLoading={isLoading}
+                onOpen={openHabitEditor}
+                onLogChange={changeHabitLog}
+              />
+            </div>
           ) : (
             <div className="tasks-page">
               <TaskList
@@ -711,6 +825,16 @@ function App() {
           onClose={closeRoleEditor}
           onDelete={deleteRole}
           onSave={updateRole}
+        />
+      )}
+      {editingHabit && (
+        <HabitEditor
+          habit={editingHabit}
+          roles={roles}
+          isNew={Boolean(newHabitDraft)}
+          onClose={closeHabitEditor}
+          onDelete={deleteHabit}
+          onSave={updateHabit}
         />
       )}
     </div>

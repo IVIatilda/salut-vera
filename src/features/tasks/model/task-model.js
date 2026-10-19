@@ -83,6 +83,16 @@ export function isTaskCompleted(task) {
   return task.status === 'completed' || task.completed;
 }
 
+export function countTasksCompletedOnDate(tasks, dateKey = localDateKey()) {
+  return tasks.filter((task) => {
+    if (!isTaskCompleted(task)) return false;
+    if (!task.completedAt) return task.scheduledDate === dateKey;
+
+    const completedAt = new Date(task.completedAt);
+    return !Number.isNaN(completedAt.getTime()) && localDateKey(completedAt) === dateKey;
+  }).length;
+}
+
 export function createSubtaskSummaryMap(tasks) {
   const childrenByParentId = new Map();
   const summaries = new Map();
