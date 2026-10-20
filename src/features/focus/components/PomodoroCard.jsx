@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import CustomSelect from '../../../shared/ui/CustomSelect.jsx';
+import { localDateKey } from '../../tasks/model/task-model.js';
+import { getFocusTaskOptions } from '../model/focus-task-options.js';
 import {
   POMODORO_PRESETS,
   createTimerState,
@@ -43,6 +45,15 @@ function GearIcon() {
   return (
     <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm7.4 5.4 1.1 1.7-2 3.4-2-.1a8 8 0 0 1-2.1 1.2l-.9 1.8h-4l-.9-1.8a8 8 0 0 1-2.1-1.2l-2 .1-2-3.4 1.1-1.7a8 8 0 0 1 0-2.5l-1.1-1.7 2-3.4 2 .1a8 8 0 0 1 2.1-1.2l.9-1.8h4l.9 1.8a8 8 0 0 1 2.1 1.2l2-.1 2 3.4-1.1 1.7a8 8 0 0 1 0 2.5z" />
+    </svg>
+  );
+}
+
+function OverdueIcon() {
+  return (
+    <svg className="focus-task-overdue-icon" viewBox="0 0 20 20" role="img" aria-label="Просрочена">
+      <circle cx="10" cy="10" r="7" />
+      <path d="M10 6.4v4.2m0 2.8v.1" />
     </svg>
   );
 }
@@ -98,16 +109,20 @@ export default function PomodoroCard({ tasks, onFocusComplete, compact = false }
   const finishingRef = useRef(false);
   const compactRef = useRef(null);
   const audioContextRef = useRef(null);
-  const availableTasks = tasks.filter((task) => !task.completed && task.status !== 'cancelled');
+  const today = localDateKey();
+  const availableTaskOptions = useMemo(() => getFocusTaskOptions(tasks, today), [tasks, today]);
   const selectedTask = tasks.find((task) => task.id === timer.taskId);
   const taskOptions = [
     { value: '', label: 'Без задачи' },
-    ...availableTasks.map((task) => ({ value: task.id, label: task.title })),
+    ...availableTaskOptions.map((option) => ({
+      ...option,
+      icon: option.overdue ? <OverdueIcon /> : null,
+    })),
   ];
-  if (selectedTask?.completed && !taskOptions.some((option) => option.value === selectedTask.id)) {
+  const isActive = timer.status === 'running' || timer.status === 'paused';
+  if (isActive && selectedTask && !taskOptions.some((option) => option.value === selectedTask.id)) {
     taskOptions.push({ value: selectedTask.id, label: selectedTask.title });
   }
-  const isActive = timer.status === 'running' || timer.status === 'paused';
   const elapsedSeconds = getElapsedSeconds(timer);
 
   useEffect(() => {
@@ -144,9 +159,10 @@ export default function PomodoroCard({ tasks, onFocusComplete, compact = false }
   }, []);
 
   useEffect(() => {
-    if (timer.taskId || availableTasks.length === 0 || isActive) return;
-    setTimer((current) => ({ ...current, taskId: availableTasks[0].id }));
-  }, [availableTasks, isActive, timer.taskId]);
+    const selectedTaskIsAvailable = availableTaskOptions.some((option) => option.value === timer.taskId);
+    if (isActive || selectedTaskIsAvailable || (!timer.taskId && availableTaskOptions.length === 0)) return;
+    setTimer((current) => ({ ...current, taskId: availableTaskOptions[0]?.value || '' }));
+  }, [availableTaskOptions, isActive, timer.taskId]);
 
   useEffect(() => {
     if (!isSettingsOpen) return undefined;

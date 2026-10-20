@@ -16,6 +16,15 @@ function CheckIcon() {
   );
 }
 
+function OptionLabel({ option }) {
+  return (
+    <span className="custom-select-option-label">
+      {option.icon}
+      <span>{option.label}</span>
+    </span>
+  );
+}
+
 export default function CustomSelect({
   value,
   options,
@@ -123,7 +132,7 @@ export default function CustomSelect({
         onClick={handleTriggerClick}
         onKeyDown={handleTriggerKeyDown}
       >
-        <span>{selectedOption?.label || 'Не выбрано'}</span>
+        {selectedOption ? <OptionLabel option={selectedOption} /> : <span>Не выбрано</span>}
         <ChevronIcon />
       </button>
 
@@ -141,7 +150,7 @@ export default function CustomSelect({
                 onClick={() => choose(option)}
                 onKeyDown={(event) => handleOptionKeyDown(event, index)}
               >
-                <span>{option.label}</span>
+                <OptionLabel option={option} />
                 {selected && <CheckIcon />}
               </button>
             );

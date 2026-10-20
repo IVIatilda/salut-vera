@@ -76,6 +76,19 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+.custom-select-option-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.custom-select-option-label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .custom-select-trigger:hover:not(:disabled),
 .custom-select.open .custom-select-trigger {
   border-color: #aeb9cc;
@@ -3393,6 +3406,17 @@ main {
 
 .focus-task-select .custom-select-menu {
   color: var(--ink);
+}
+
+.focus-task-overdue-icon {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  fill: rgb(255 107 95 / 12%);
+  stroke: var(--coral);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
 }
 
 .focus-actions {
