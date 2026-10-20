@@ -56,7 +56,7 @@ export default function ProjectEditor({ project, projects, tasks, roles, isNew, 
         <form onSubmit={submit}>
           <div className="task-editor-heading">
             <div>
-              <span className="eyebrow">Проект</span>
+              {!isNew && <span className="eyebrow">Проект</span>}
               <h2 id="project-editor-title">{isNew ? 'Новый проект' : draft.title}</h2>
             </div>
             <button className="editor-close" onClick={onClose} type="button" aria-label="Закрыть">×</button>
@@ -89,10 +89,8 @@ export default function ProjectEditor({ project, projects, tasks, roles, isNew, 
 
           {!isNew && <p className="project-editor-note">Связано задач: {taskCount}. При удалении проекта задачи сохранятся.</p>}
 
-          <div className="task-editor-actions">
-            {isNew ? (
-              <span className="new-task-hint">Проект появится после сохранения</span>
-            ) : confirmDelete ? (
+          <div className={`task-editor-actions ${isNew ? 'new-task-actions' : ''}`}>
+            {!isNew && (confirmDelete ? (
               <div className="delete-confirmation">
                 <span>Удалить проект?</span>
                 <button className="delete-confirm" onClick={() => onDelete(project)} type="button">Удалить</button>
@@ -100,7 +98,7 @@ export default function ProjectEditor({ project, projects, tasks, roles, isNew, 
               </div>
             ) : (
               <button className="editor-delete" onClick={() => setConfirmDelete(true)} type="button">Удалить</button>
-            )}
+            ))}
             <div>
               <button className="editor-cancel" onClick={onClose} type="button">Отмена</button>
               <button className="editor-save" type="submit">{isNew ? 'Создать' : 'Сохранить'}</button>

@@ -164,8 +164,8 @@ export default function TaskList({
   onToggle,
   onOpen,
   isLoading,
+  showQuickAdd = true,
 }) {
-  const [title, setTitle] = useState('');
   const [expandedTaskIds, setExpandedTaskIds] = useState(() => new Set());
   const roots = sortTasks(tasks.filter((task) => taskMatchesView(task, view, filter)));
   const childrenByParentId = useMemo(() => {
@@ -180,14 +180,6 @@ export default function TaskList({
     return grouped;
   }, [tasks]);
   const subtaskSummaries = useMemo(() => createSubtaskSummaryMap(tasks), [tasks]);
-
-  function submitTask(event) {
-    event.preventDefault();
-    const cleanTitle = title.trim();
-    if (!cleanTitle) return;
-    onAdd(cleanTitle);
-    setTitle('');
-  }
 
   function toggleSubtasks(taskId) {
     setExpandedTaskIds((current) => {
@@ -254,17 +246,7 @@ export default function TaskList({
         </div>
       )}
 
-      <form className="quick-add" onSubmit={submitTask}>
-        <label className="sr-only" htmlFor={`new-task-${view}`}>Новая задача</label>
-        <input
-          id={`new-task-${view}`}
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder={'Быстрое добавление задачи'}
-          autoComplete="off"
-        />
-        <button type="submit">+</button>
-      </form>
+      {showQuickAdd && <QuickTaskForm id={`new-task-${view}`} onAdd={onAdd} />}
 
       <div className="task-list" aria-live="polite">
         {isLoading && <p className="empty-message">Загружаем задачи…</p>}
@@ -272,5 +254,31 @@ export default function TaskList({
         {roots.map(renderTask)}
       </div>
     </section>
+  );
+}
+
+export function QuickTaskForm({ id, onAdd, className = '' }) {
+  const [title, setTitle] = useState('');
+
+  function submitTask(event) {
+    event.preventDefault();
+    const cleanTitle = title.trim();
+    if (!cleanTitle) return;
+    onAdd(cleanTitle);
+    setTitle('');
+  }
+
+  return (
+    <form className={`quick-add ${className}`.trim()} onSubmit={submitTask}>
+      <label className="sr-only" htmlFor={id}>Новая задача</label>
+      <input
+        id={id}
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder="Быстрое добавление задачи"
+        autoComplete="off"
+      />
+      <button type="submit" aria-label="Быстро добавить задачу">+</button>
+    </form>
   );
 }

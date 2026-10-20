@@ -61,7 +61,7 @@ export default function RoleEditor({ role, roles, tasks, projects, isNew, onClos
         <form onSubmit={submit}>
           <div className="task-editor-heading">
             <div>
-              <span className="eyebrow">Сфера жизни</span>
+              {!isNew && <span className="eyebrow">Сфера жизни</span>}
               <h2 id="role-editor-title">{isNew ? 'Новая сфера' : draft.title}</h2>
             </div>
             <button className="editor-close" onClick={onClose} type="button" aria-label="Закрыть">×</button>
@@ -146,10 +146,8 @@ export default function RoleEditor({ role, roles, tasks, projects, isNew, onClos
             </p>
           )}
 
-          <div className="task-editor-actions">
-            {isNew ? (
-              <span className="new-task-hint">Сфера появится после сохранения</span>
-            ) : confirmDelete ? (
+          <div className={`task-editor-actions ${isNew ? 'new-task-actions' : ''}`}>
+            {!isNew && (confirmDelete ? (
               <div className="delete-confirmation">
                 <span>Удалить сферу? Связи с задачами и проектами будут сняты.</span>
                 <button className="delete-confirm" onClick={() => onDelete(role)} type="button">Удалить</button>
@@ -157,7 +155,7 @@ export default function RoleEditor({ role, roles, tasks, projects, isNew, onClos
               </div>
             ) : (
               <button className="editor-delete" onClick={() => setConfirmDelete(true)} type="button">Удалить</button>
-            )}
+            ))}
             <div>
               <button className="editor-cancel" onClick={onClose} type="button">Отмена</button>
               <button className="editor-save" disabled={titleExists} type="submit">{isNew ? 'Создать' : 'Сохранить'}</button>

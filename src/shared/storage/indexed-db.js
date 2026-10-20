@@ -1,11 +1,12 @@
 const DB_NAME = 'vera-organizer';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const TASK_STORE = 'tasks';
 const TIME_ENTRY_STORE = 'timeEntries';
 const PROJECT_STORE = 'projects';
 const ROLE_STORE = 'roles';
 const HABIT_STORE = 'habits';
 const HABIT_LOG_STORE = 'habitLogs';
+const IMPORTANT_DATE_STORE = 'importantDates';
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -53,6 +54,12 @@ function openDatabase() {
         if (!habitLogStore.indexNames.contains('occurredAt')) {
           habitLogStore.createIndex('occurredAt', 'occurredAt');
         }
+      }
+
+      if (!database.objectStoreNames.contains(IMPORTANT_DATE_STORE)) {
+        const importantDateStore = database.createObjectStore(IMPORTANT_DATE_STORE, { keyPath: 'id' });
+        importantDateStore.createIndex('date', 'date');
+        importantDateStore.createIndex('createdAt', 'createdAt');
       }
     };
 
@@ -150,4 +157,18 @@ export function saveHabitLog(log) {
 
 export function removeHabitLog(logId) {
   return runTransaction(HABIT_LOG_STORE, 'readwrite', (store) => store.delete(logId));
+}
+
+export function listImportantDates() {
+  return runTransaction(IMPORTANT_DATE_STORE, 'readonly', (store) => store.getAll()).then((items) =>
+    items.sort((first, second) => first.date.localeCompare(second.date)),
+  );
+}
+
+export function saveImportantDate(item) {
+  return runTransaction(IMPORTANT_DATE_STORE, 'readwrite', (store) => store.put(item));
+}
+
+export function removeImportantDate(itemId) {
+  return runTransaction(IMPORTANT_DATE_STORE, 'readwrite', (store) => store.delete(itemId));
 }

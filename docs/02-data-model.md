@@ -94,6 +94,19 @@
 - `status`: `running | paused | completed | cancelled`
 - `interruption_note`
 
+### ImportantDate
+
+- `id`, `user_id`
+- `title`
+- `date` — локальный календарный день в формате `YYYY-MM-DD`
+- `note` — необязательно
+- `repeats_yearly` — ежегодное повторение по месяцу и дню
+- `created_at`, `updated_at`
+
+Важная дата является пользовательской записью Vera, а не синхронизированным внешним
+событием. Ежегодное повторение рассчитывается при отображении и не создаёт копии записи
+для каждого года.
+
 ### Habit
 
 - `id`, `user_id`

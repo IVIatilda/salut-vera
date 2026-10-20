@@ -6,6 +6,7 @@ import {
   getLatestHabitEpisode,
   getHabitLogState,
   getHabitWeekProgress,
+  getScheduledHabitsForDate,
   getWeekDates,
   isHabitScheduledForDate,
   normalizeHabit,
@@ -27,6 +28,16 @@ describe('habit model', () => {
     const habit = normalizeHabit({ id: 'sport', scheduleDays: [1, 3, 5] });
     expect(isHabitScheduledForDate(habit, '2026-10-16')).toBe(true);
     expect(isHabitScheduledForDate(habit, '2026-10-17')).toBe(false);
+  });
+
+  it('selects only active habits scheduled for the requested day', () => {
+    const habits = [
+      normalizeHabit({ id: 'sport', scheduleDays: [1, 3, 5] }),
+      normalizeHabit({ id: 'read', scheduleDays: [2, 4] }),
+      normalizeHabit({ id: 'archived', scheduleDays: [5], status: 'archived' }),
+    ];
+
+    expect(getScheduledHabitsForDate(habits, '2026-10-16').map((habit) => habit.id)).toEqual(['sport']);
   });
 
   it('builds a monday-first week', () => {
@@ -70,6 +81,13 @@ describe('habit model', () => {
     const habit = normalizeHabit({ id: 'phone', direction: 'reduce' });
     expect(getHabitLogState(habit, { status: 'episode', value: 1 })).toBe('episode');
     expect(getHabitLogState(habit, { status: 'done', value: 0 })).toBe('done');
+  });
+
+  it('counts a day without unwanted episodes only after an explicit mark', () => {
+    const habit = normalizeHabit({ id: 'phone', direction: 'reduce' });
+
+    expect(getHabitDaySummary(habit, [])).toEqual({ state: 'empty', value: 0 });
+    expect(getHabitDaySummary(habit, [{ status: 'done', value: 0 }])).toEqual({ state: 'done', value: 0 });
   });
 
   it('stores every unwanted-habit episode as a timestamped event', () => {

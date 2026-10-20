@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import CustomSelect from '../../../shared/ui/CustomSelect.jsx';
 import {
   POMODORO_PRESETS,
@@ -482,7 +483,7 @@ export default function PomodoroCard({ tasks, onFocusComplete, compact = false }
         </div>
       ) : timerCard}
 
-      {isSettingsOpen && (
+      {isSettingsOpen && createPortal(
         <div
           className="timer-modal-backdrop"
           onMouseDown={(event) => {
@@ -544,7 +545,8 @@ export default function PomodoroCard({ tasks, onFocusComplete, compact = false }
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

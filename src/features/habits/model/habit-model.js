@@ -112,6 +112,10 @@ export function isHabitScheduledForDate(habit, value) {
   return habit.status === 'active' && habit.scheduleDays.includes(weekday);
 }
 
+export function getScheduledHabitsForDate(habits, value) {
+  return habits.filter((habit) => isHabitScheduledForDate(habit, value));
+}
+
 export function getWeekDates(value = new Date()) {
   const date = typeof value === 'string' ? new Date(`${value}T12:00:00`) : new Date(value);
   const weekday = date.getDay() || 7;

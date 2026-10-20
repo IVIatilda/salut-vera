@@ -69,10 +69,10 @@ export default function HabitList({ habits, logs, roles, today, isLoading, onOpe
         </div>
         <p>
           {todayHabits.length === 0
-            ? 'На сегодня привычек нет — пространство тоже часть системы.'
+            ? 'На сегодня привычек нет.'
             : completedToday === todayHabits.length
-              ? 'Все запланированные действия отмечены.'
-              : 'Один небольшой шаг уже считается. Возвращение важнее идеальной серии.'}
+              ? 'Все запланированные привычки отмечены.'
+              : `Осталось отметить: ${todayHabits.length - completedToday}.`}
         </p>
       </div>
 

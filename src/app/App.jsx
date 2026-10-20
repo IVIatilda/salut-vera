@@ -5,8 +5,10 @@ import {
   listTasks,
   listHabits,
   listHabitLogs,
+  listImportantDates,
   removeHabit,
   removeHabitLog,
+  removeImportantDate,
   removeProject,
   removeRole,
   removeTask,
@@ -16,9 +18,17 @@ import {
   saveTimeEntry,
   saveHabit,
   saveHabitLog,
+  saveImportantDate,
 } from '../shared/storage/indexed-db.js';
+import CalendarPage from '../features/calendar/components/CalendarPage.jsx';
+import ImportantDateEditor from '../features/calendar/components/ImportantDateEditor.jsx';
+import {
+  createImportantDate,
+  normalizeImportantDate,
+} from '../features/calendar/model/calendar-model.js';
 import HabitEditor from '../features/habits/components/HabitEditor.jsx';
 import HabitList from '../features/habits/components/HabitList.jsx';
+import TodayHabitList from '../features/habits/components/TodayHabitList.jsx';
 import {
   createHabit,
   createHabitLog,
@@ -32,7 +42,7 @@ import ProjectList from '../features/projects/components/ProjectList.jsx';
 import RoleEditor from '../features/roles/components/RoleEditor.jsx';
 import RoleList from '../features/roles/components/RoleList.jsx';
 import TaskEditor from '../features/tasks/components/TaskEditor.jsx';
-import TaskList from '../features/tasks/components/TaskList.jsx';
+import TaskList, { QuickTaskForm } from '../features/tasks/components/TaskList.jsx';
 import { createProject, normalizeProject } from '../features/projects/model/project-model.js';
 import { createRole, normalizeRole, ROLE_COLORS } from '../features/roles/model/role-model.js';
 import veraLogo from '../assets/images/vera-logo.png';
@@ -58,7 +68,7 @@ const NAV_ITEMS = [
   ['review', 'Обзор'],
 ];
 
-const ENABLED_NAV_ITEMS = new Set(['today', 'tasks', 'projects', 'roles', 'habits']);
+const ENABLED_NAV_ITEMS = new Set(['today', 'tasks', 'projects', 'roles', 'calendar', 'habits']);
 
 const EXAMPLE_TASKS = [
   {
@@ -132,6 +142,7 @@ function App() {
   const [roles, setRoles] = useState([]);
   const [habits, setHabits] = useState([]);
   const [habitLogs, setHabitLogs] = useState([]);
+  const [importantDates, setImportantDates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeNav, setActiveNav] = useState('today');
   const [taskFilter, setTaskFilter] = useState('active');
@@ -145,10 +156,12 @@ function App() {
   const [newRoleDraft, setNewRoleDraft] = useState(null);
   const [editingHabitId, setEditingHabitId] = useState(null);
   const [newHabitDraft, setNewHabitDraft] = useState(null);
+  const [editingImportantDateId, setEditingImportantDateId] = useState(null);
+  const [newImportantDateDraft, setNewImportantDateDraft] = useState(null);
 
   useEffect(() => {
-    Promise.all([listTasks(), listProjects(), listRoles(), listHabits(), listHabitLogs()])
-      .then(async ([loadedTasks, storedProjects, storedRoles, storedHabits, storedHabitLogs]) => {
+    Promise.all([listTasks(), listProjects(), listRoles(), listHabits(), listHabitLogs(), listImportantDates()])
+      .then(async ([loadedTasks, storedProjects, storedRoles, storedHabits, storedHabitLogs, storedImportantDates]) => {
         const storedTasks = loadedTasks.length ? loadedTasks : EXAMPLE_TASKS;
         const normalizedTasks = storedTasks.map((task) => normalizeTask(task));
         const normalizedProjects = storedProjects.map(normalizeProject);
@@ -212,6 +225,7 @@ function App() {
         setRoles(allRoles);
         setHabits(storedHabits.map(normalizeHabit));
         setHabitLogs(storedHabitLogs.map(normalizeHabitLog));
+        setImportantDates(storedImportantDates.map(normalizeImportantDate));
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -255,6 +269,8 @@ function App() {
   const editingProject = newProjectDraft || projects.find((project) => project.id === editingProjectId);
   const editingRole = newRoleDraft || roles.find((role) => role.id === editingRoleId);
   const editingHabit = newHabitDraft || habits.find((habit) => habit.id === editingHabitId);
+  const editingImportantDate = newImportantDateDraft
+    || importantDates.find((item) => item.id === editingImportantDateId);
 
   async function addTask(title) {
     const task = createTask(title, activeNav, todayKey);
@@ -341,6 +357,37 @@ function App() {
   function closeHabitEditor() {
     setNewHabitDraft(null);
     setEditingHabitId(null);
+  }
+
+  function createNewImportantDate(date = todayKey) {
+    setEditingImportantDateId(null);
+    setNewImportantDateDraft(createImportantDate(date));
+  }
+
+  function openImportantDateEditor(item) {
+    setNewImportantDateDraft(null);
+    setEditingImportantDateId(item.id);
+  }
+
+  function closeImportantDateEditor() {
+    setNewImportantDateDraft(null);
+    setEditingImportantDateId(null);
+  }
+
+  async function updateImportantDate(item) {
+    await saveImportantDate(item);
+    setImportantDates((current) => (
+      current.some((currentItem) => currentItem.id === item.id)
+        ? current.map((currentItem) => (currentItem.id === item.id ? item : currentItem))
+        : [...current, item]
+    ));
+    closeImportantDateEditor();
+  }
+
+  async function deleteImportantDate(item) {
+    await removeImportantDate(item.id);
+    setImportantDates((current) => current.filter((currentItem) => currentItem.id !== item.id));
+    closeImportantDateEditor();
   }
 
   async function updateHabit(habit) {
@@ -592,9 +639,7 @@ function App() {
             <PomodoroCard compact tasks={tasks} onFocusComplete={handleFocusComplete} />
           </div>
           <div className="sidebar-note">
-            <span className="eyebrow">Хранение</span>
-            <strong>На этом устройстве</strong>
-            <span>Данные доступны офлайн</span>
+            <span>Данные хранятся на устройстве и доступны офлайн</span>
           </div>
         </div>
       </aside>
@@ -662,9 +707,7 @@ function App() {
           ) : activeNav === 'projects' ? (
             <section className="module-header">
               <div className="module-header-copy">
-                <span className="eyebrow">Структура действий</span>
                 <h1>Проекты</h1>
-                <p>Собирайте связанные задачи вокруг одного конкретного результата.</p>
               </div>
               <button className="new-task-button" onClick={createNewProject} type="button">
                 Добавить проект
@@ -673,20 +716,17 @@ function App() {
           ) : activeNav === 'roles' ? (
             <section className="module-header">
               <div className="module-header-copy">
-                <span className="eyebrow">Баланс жизни</span>
                 <h1>Сферы жизни</h1>
-                <p>Соберите важные части своей жизни и связывайте с ними задачи, проекты и время в фокусе.</p>
               </div>
               <button className="new-task-button" onClick={createNewRole} type="button">
                 Добавить сферу
               </button>
             </section>
-          ) : activeNav === 'habits' ? (
+          ) : activeNav === 'calendar' ? null
+          : activeNav === 'habits' ? (
             <section className="module-header habits-header">
               <div className="module-header-copy">
-                <span className="eyebrow">Маленькие действия</span>
                 <h1>Привычки</h1>
-                <p>Создавайте систему, к которой легко вернуться, даже если один день выпал.</p>
               </div>
               <button className="new-task-button" onClick={createNewHabit} type="button">
                 Добавить привычку
@@ -695,9 +735,7 @@ function App() {
           ) : (
             <section className="module-header">
               <div className="module-header-copy">
-                <span className="eyebrow">Задачи</span>
                 <h1>Все задачи</h1>
-                <p>Единое место для запланированных, будущих и завершённых задач.</p>
               </div>
               <button className="new-task-button" onClick={() => createDetailedTask()} type="button">
                 Добавить задачу
@@ -707,45 +745,52 @@ function App() {
 
           {activeNav === 'today' ? (
             <div className="dashboard-grid">
-            <section className="primary-column">
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">План дня</span>
-                  <h2>Сегодня</h2>
-                </div>
-                <div className="plan-summary">
-                  <button className="new-task-button" onClick={() => createDetailedTask()} type="button">
-                    Добавить задачу
-                  </button>
+            <div className="today-main-column">
+              <QuickTaskForm id="new-task-today" onAdd={addTask} className="today-quick-add" />
+              <section className="primary-column">
+                <div className="section-heading">
+                  <div>
+                    <h2>Сегодня</h2>
+                  </div>
                   <span className="quiet-stat">{plannedMinutes} мин запланировано</span>
                 </div>
-              </div>
 
-              <TaskList
-                tasks={tasks}
-                projects={projects}
-                roles={roles}
-                view="today"
-                filter="active"
-                onFilterChange={setTaskFilter}
-                onAdd={addTask}
-                onToggle={toggleTask}
-                onOpen={openTaskEditor}
-                isLoading={isLoading}
-              />
-            </section>
+                <TaskList
+                  tasks={tasks}
+                  projects={projects}
+                  roles={roles}
+                  view="today"
+                  filter="active"
+                  onFilterChange={setTaskFilter}
+                  onAdd={addTask}
+                  onToggle={toggleTask}
+                  onOpen={openTaskEditor}
+                  isLoading={isLoading}
+                  showQuickAdd={false}
+                />
+              </section>
+            </div>
 
             <aside className="secondary-column">
+              <button className="new-task-button today-create-task" onClick={() => createDetailedTask()} type="button">
+                <span>Добавить задачу</span>
+                <i aria-hidden="true">+</i>
+              </button>
+              <TodayHabitList
+                habits={habits}
+                logs={habitLogs}
+                roles={roles}
+                today={todayKey}
+                isLoading={isLoading}
+                onOpen={openHabitEditor}
+                onLogChange={changeHabitLog}
+                onOpenAll={() => setActiveNav('habits')}
+              />
               <section className="check-in-card">
                 <div className="section-heading compact">
-                  <div>
-                    <span className="eyebrow">Текущий статус</span>
-                    <h2>Уже сделано</h2>
-                  </div>
+                  <h2>Уже сделано</h2>
                   <strong className="score">{completedCount}</strong>
                 </div>
-                <p>Каждое завершённое действие — свидетельство движения, а не оценка дня.</p>
-                <button className="text-button" type="button">Записать маленькую победу →</button>
               </section>
             </aside>
             </div>
@@ -757,6 +802,20 @@ function App() {
             <div className="roles-page">
               <RoleList roles={roles} tasks={tasks} projects={projects} onOpen={openRoleEditor} />
             </div>
+          ) : activeNav === 'calendar' ? (
+            <CalendarPage
+              tasks={tasks}
+              projects={projects}
+              habits={habits}
+              habitLogs={habitLogs}
+              importantDates={importantDates}
+              today={todayKey}
+              onAddImportantDate={createNewImportantDate}
+              onOpenImportantDate={openImportantDateEditor}
+              onOpenProject={openProjectEditor}
+              onOpenTask={openTaskEditor}
+              onToggleTask={toggleTask}
+            />
           ) : activeNav === 'habits' ? (
             <div className="habits-page">
               <HabitList
@@ -835,6 +894,15 @@ function App() {
           onClose={closeHabitEditor}
           onDelete={deleteHabit}
           onSave={updateHabit}
+        />
+      )}
+      {editingImportantDate && (
+        <ImportantDateEditor
+          item={editingImportantDate}
+          isNew={Boolean(newImportantDateDraft)}
+          onClose={closeImportantDateEditor}
+          onDelete={deleteImportantDate}
+          onSave={updateImportantDate}
         />
       )}
     </div>

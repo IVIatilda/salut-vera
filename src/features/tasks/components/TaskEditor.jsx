@@ -18,7 +18,6 @@ function initialExpandedFields(task) {
     project: Boolean(task.projectId),
     scheduledDate: Boolean(task.scheduledDate),
     dueDate: Boolean(task.dueDate),
-    estimate: Number(task.estimate) > 0,
   };
 }
 
@@ -42,6 +41,15 @@ function ImportanceIcon({ type }) {
     up: 'M12 19V5m-5 5 5-5 5 5',
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[type]} /></svg>;
+}
+
+function TimeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
 }
 
 function formatTrackedTime(seconds = 0) {
@@ -177,8 +185,8 @@ export default function TaskEditor({ task, tasks, projects, roles, parentTask, i
           )}
           <div className="task-editor-heading">
             <div>
-              <span className="eyebrow">{isSubtask ? 'Подзадача' : 'Задача'}</span>
-              <h2 id="task-editor-title">{isNew ? 'Новая задача' : draft.title}</h2>
+              {!isNew && <span className="eyebrow">{isSubtask ? 'Подзадача' : 'Задача'}</span>}
+              <h2 id="task-editor-title">{isNew ? (isSubtask ? 'Новая подзадача' : 'Новая задача') : draft.title}</h2>
             </div>
             <button className="editor-close" onClick={onClose} type="button" aria-label="Закрыть">×</button>
           </div>
@@ -232,7 +240,7 @@ export default function TaskEditor({ task, tasks, projects, roles, parentTask, i
 
           <label className="editor-checkbox compact-urgent-field">
             <input type="checkbox" checked={draft.isUrgent} onChange={(event) => update('isUrgent', event.target.checked)} />
-            <span>Задача срочная</span>
+            <span>Срочно</span>
           </label>
 
           <div className="task-optional-grid">
@@ -242,12 +250,6 @@ export default function TaskEditor({ task, tasks, projects, roles, parentTask, i
               </OptionalField>
               <OptionalField id="scheduledDate" label="Запланировать" isOpen={expandedFields.scheduledDate} onToggle={toggleOptionalField}>
                 <input type="date" value={draft.scheduledDate} onChange={(event) => update('scheduledDate', event.target.value)} />
-              </OptionalField>
-              <OptionalField id="estimate" label="Оценка времени" isOpen={expandedFields.estimate} onToggle={toggleOptionalField}>
-                <div className="estimate-input">
-                  <input type="number" min="0" max="1440" value={draft.estimate || ''} onChange={(event) => update('estimate', event.target.value)} placeholder="0" />
-                  <span>мин</span>
-                </div>
               </OptionalField>
             </div>
             <div className="task-optional-column">
@@ -260,13 +262,29 @@ export default function TaskEditor({ task, tasks, projects, roles, parentTask, i
             </div>
           </div>
 
-          <section className="manual-time-section">
-            <div><span>Затраченное время</span><strong>{formatTrackedTime(draft.trackedSeconds)}</strong></div>
-            <button type="button" aria-expanded={manualTimeOpen} onClick={() => setManualTimeOpen((current) => !current)}>{manualTimeOpen ? 'Убрать' : '+ Записать вручную'}</button>
+          <section className="task-time-card" aria-labelledby="task-time-title">
+            <div className="task-time-heading">
+              <span className="task-time-icon"><TimeIcon /></span>
+              <strong id="task-time-title">Время</strong>
+            </div>
+            <div className="task-time-overview">
+              <label className="task-time-plan">
+                <span>Запланировано</span>
+                <div className="estimate-input">
+                  <input type="number" min="0" max="1440" value={draft.estimate || ''} onChange={(event) => update('estimate', event.target.value)} placeholder="0" aria-label="Оценка времени в минутах" />
+                  <span>мин</span>
+                </div>
+              </label>
+              <div className="task-time-actual">
+                <span>Затрачено</span>
+                <strong>{formatTrackedTime(draft.trackedSeconds)}</strong>
+                <button type="button" aria-expanded={manualTimeOpen} onClick={() => setManualTimeOpen((current) => !current)}>{manualTimeOpen ? 'Отменить запись' : '+ Записать время'}</button>
+              </div>
+            </div>
             {manualTimeOpen && (
               <div className="manual-time-fields">
                 <label><span>Минуты</span><input type="number" min="1" max="1440" value={manualMinutes} onChange={(event) => setManualMinutes(event.target.value)} placeholder="30" /></label>
-                <label><span>Дата</span><input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} /></label>
+                <label><span>Дата записи</span><input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} /></label>
               </div>
             )}
           </section>
@@ -284,10 +302,10 @@ export default function TaskEditor({ task, tasks, projects, roles, parentTask, i
             </section>
           )}
 
-          <div className="task-editor-actions">
-            {isNew ? <span className="new-task-hint">Задача появится после сохранения</span> : confirmDelete ? (
+          <div className={`task-editor-actions ${isNew ? 'new-task-actions' : ''}`}>
+            {!isNew && (confirmDelete ? (
               <div className="delete-confirmation"><span>Удалить задачу{subtasks.length ? ' и её подзадачи' : ''}?</span><button className="delete-confirm" onClick={() => onDelete(task)} type="button">Удалить</button><button onClick={() => setConfirmDelete(false)} type="button">Не удалять</button></div>
-            ) : <button className="editor-delete" onClick={() => setConfirmDelete(true)} type="button">Удалить</button>}
+            ) : <button className="editor-delete" onClick={() => setConfirmDelete(true)} type="button">Удалить</button>)}
             <div><button className="editor-cancel" onClick={onClose} type="button">Отмена</button><button className="editor-save" disabled={isSaving} type="submit">{isSaving ? 'Сохранение…' : isNew ? 'Создать' : 'Сохранить'}</button></div>
           </div>
         </form>

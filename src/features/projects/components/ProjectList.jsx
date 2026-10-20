@@ -43,7 +43,7 @@ export default function ProjectList({ projects, tasks, roles, onOpen }) {
       {visibleProjects.length === 0 ? (
         <div className="projects-empty">
           <strong>{filter === 'open' ? 'Открытых проектов пока нет' : 'В этой подборке проектов нет'}</strong>
-          <span>Проект объединяет задачи, ведущие к одному конкретному результату.</span>
+          {filter === 'open' && <span>Добавьте проект для задач с общим результатом.</span>}
         </div>
       ) : (
         <div className="project-grid">

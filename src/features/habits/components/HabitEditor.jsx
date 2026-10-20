@@ -78,7 +78,7 @@ export default function HabitEditor({ habit, roles, isNew, onClose, onDelete, on
         <form onSubmit={submit}>
           <div className="task-editor-heading">
             <div>
-              <span className="eyebrow">Привычка</span>
+              {!isNew && <span className="eyebrow">Привычка</span>}
               <h2 id="habit-editor-title">{isNew ? 'Новая привычка' : draft.title}</h2>
             </div>
             <button className="editor-close" onClick={onClose} type="button" aria-label="Закрыть">×</button>
@@ -191,10 +191,8 @@ export default function HabitEditor({ habit, roles, isNew, onClose, onDelete, on
             </div>
           </details>
 
-          <div className="task-editor-actions">
-            {isNew ? (
-              <span className="new-task-hint">Начните настолько легко, чтобы действие было трудно пропустить</span>
-            ) : confirmDelete ? (
+          <div className={`task-editor-actions ${isNew ? 'new-task-actions' : ''}`}>
+            {!isNew && (confirmDelete ? (
               <div className="delete-confirmation">
                 <span>Удалить привычку и её историю?</span>
                 <button className="delete-confirm" onClick={() => onDelete(habit)} type="button">Удалить</button>
@@ -202,7 +200,7 @@ export default function HabitEditor({ habit, roles, isNew, onClose, onDelete, on
               </div>
             ) : (
               <button className="editor-delete" onClick={() => setConfirmDelete(true)} type="button">Удалить</button>
-            )}
+            ))}
             <div>
               <button className="editor-cancel" onClick={onClose} type="button">Отмена</button>
               <button className="editor-save" type="submit">{isNew ? 'Создать' : 'Сохранить'}</button>
