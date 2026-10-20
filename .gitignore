@@ -4,6 +4,9 @@ node_modules/
 # Production builds
 dist/
 
+# Materials
+library/
+
 # Test output and coverage
 coverage/
 .vitest-cache/
