@@ -1,5 +1,5 @@
 const DB_NAME = 'vera-organizer';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const TASK_STORE = 'tasks';
 const TIME_ENTRY_STORE = 'timeEntries';
 const PROJECT_STORE = 'projects';
@@ -7,6 +7,8 @@ const ROLE_STORE = 'roles';
 const HABIT_STORE = 'habits';
 const HABIT_LOG_STORE = 'habitLogs';
 const IMPORTANT_DATE_STORE = 'importantDates';
+const RITUAL_SESSION_STORE = 'ritualSessions';
+const DAILY_PRIORITY_STORE = 'dailyPriorities';
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -60,6 +62,18 @@ function openDatabase() {
         const importantDateStore = database.createObjectStore(IMPORTANT_DATE_STORE, { keyPath: 'id' });
         importantDateStore.createIndex('date', 'date');
         importantDateStore.createIndex('createdAt', 'createdAt');
+      }
+
+      if (!database.objectStoreNames.contains(RITUAL_SESSION_STORE)) {
+        const ritualSessionStore = database.createObjectStore(RITUAL_SESSION_STORE, { keyPath: 'id' });
+        ritualSessionStore.createIndex('sessionDate', 'sessionDate');
+        ritualSessionStore.createIndex('type', 'type');
+      }
+
+      if (!database.objectStoreNames.contains(DAILY_PRIORITY_STORE)) {
+        const dailyPriorityStore = database.createObjectStore(DAILY_PRIORITY_STORE, { keyPath: 'id' });
+        dailyPriorityStore.createIndex('priorityDate', 'priorityDate');
+        dailyPriorityStore.createIndex('taskId', 'taskId');
       }
     };
 
@@ -171,4 +185,24 @@ export function saveImportantDate(item) {
 
 export function removeImportantDate(itemId) {
   return runTransaction(IMPORTANT_DATE_STORE, 'readwrite', (store) => store.delete(itemId));
+}
+
+export function listRitualSessions() {
+  return runTransaction(RITUAL_SESSION_STORE, 'readonly', (store) => store.getAll());
+}
+
+export function saveRitualSession(session) {
+  return runTransaction(RITUAL_SESSION_STORE, 'readwrite', (store) => store.put(session));
+}
+
+export function listDailyPriorities() {
+  return runTransaction(DAILY_PRIORITY_STORE, 'readonly', (store) => store.getAll());
+}
+
+export function saveDailyPriority(priority) {
+  return runTransaction(DAILY_PRIORITY_STORE, 'readwrite', (store) => store.put(priority));
+}
+
+export function removeDailyPriority(priorityId) {
+  return runTransaction(DAILY_PRIORITY_STORE, 'readwrite', (store) => store.delete(priorityId));
 }

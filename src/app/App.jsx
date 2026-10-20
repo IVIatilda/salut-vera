@@ -6,9 +6,12 @@ import {
   listHabits,
   listHabitLogs,
   listImportantDates,
+  listRitualSessions,
+  listDailyPriorities,
   removeHabit,
   removeHabitLog,
   removeImportantDate,
+  removeDailyPriority,
   removeProject,
   removeRole,
   removeTask,
@@ -19,6 +22,8 @@ import {
   saveHabit,
   saveHabitLog,
   saveImportantDate,
+  saveRitualSession,
+  saveDailyPriority,
 } from '../shared/storage/indexed-db.js';
 import CalendarPage from '../features/calendar/components/CalendarPage.jsx';
 import ImportantDateEditor from '../features/calendar/components/ImportantDateEditor.jsx';
@@ -37,6 +42,11 @@ import {
   normalizeHabitLog,
 } from '../features/habits/model/habit-model.js';
 import PomodoroCard from '../features/focus/components/PomodoroCard.jsx';
+import MorningRitual from '../features/rituals/components/MorningRitual.jsx';
+import {
+  createMorningRitual,
+  normalizeRitualSession,
+} from '../features/rituals/model/ritual-model.js';
 import ProjectEditor from '../features/projects/components/ProjectEditor.jsx';
 import ProjectList from '../features/projects/components/ProjectList.jsx';
 import RoleEditor from '../features/roles/components/RoleEditor.jsx';
@@ -143,6 +153,9 @@ function App() {
   const [habits, setHabits] = useState([]);
   const [habitLogs, setHabitLogs] = useState([]);
   const [importantDates, setImportantDates] = useState([]);
+  const [ritualSessions, setRitualSessions] = useState([]);
+  const [dailyPriorities, setDailyPriorities] = useState([]);
+  const [morningRitualDraft, setMorningRitualDraft] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeNav, setActiveNav] = useState('today');
   const [taskFilter, setTaskFilter] = useState('active');
@@ -160,8 +173,26 @@ function App() {
   const [newImportantDateDraft, setNewImportantDateDraft] = useState(null);
 
   useEffect(() => {
-    Promise.all([listTasks(), listProjects(), listRoles(), listHabits(), listHabitLogs(), listImportantDates()])
-      .then(async ([loadedTasks, storedProjects, storedRoles, storedHabits, storedHabitLogs, storedImportantDates]) => {
+    Promise.all([
+      listTasks(),
+      listProjects(),
+      listRoles(),
+      listHabits(),
+      listHabitLogs(),
+      listImportantDates(),
+      listRitualSessions(),
+      listDailyPriorities(),
+    ])
+      .then(async ([
+        loadedTasks,
+        storedProjects,
+        storedRoles,
+        storedHabits,
+        storedHabitLogs,
+        storedImportantDates,
+        storedRitualSessions,
+        storedDailyPriorities,
+      ]) => {
         const storedTasks = loadedTasks.length ? loadedTasks : EXAMPLE_TASKS;
         const normalizedTasks = storedTasks.map((task) => normalizeTask(task));
         const normalizedProjects = storedProjects.map(normalizeProject);
@@ -226,6 +257,8 @@ function App() {
         setHabits(storedHabits.map(normalizeHabit));
         setHabitLogs(storedHabitLogs.map(normalizeHabitLog));
         setImportantDates(storedImportantDates.map(normalizeImportantDate));
+        setRitualSessions(storedRitualSessions.map(normalizeRitualSession));
+        setDailyPriorities(storedDailyPriorities);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -271,6 +304,32 @@ function App() {
   const editingHabit = newHabitDraft || habits.find((habit) => habit.id === editingHabitId);
   const editingImportantDate = newImportantDateDraft
     || importantDates.find((item) => item.id === editingImportantDateId);
+  const todayMorningSession = ritualSessions.find((session) => (
+    session.type === 'morning' && session.sessionDate === todayKey
+  ));
+
+  function openMorningRitual() {
+    setMorningRitualDraft(todayMorningSession || createMorningRitual(todayKey));
+  }
+
+  async function completeMorningRitual(session, priorities) {
+    const previousPriorities = dailyPriorities.filter((item) => item.priorityDate === todayKey);
+    await Promise.all([
+      saveRitualSession(session),
+      ...previousPriorities.map((item) => removeDailyPriority(item.id)),
+      ...priorities.map(saveDailyPriority),
+    ]);
+    setRitualSessions((current) => (
+      current.some((item) => item.id === session.id)
+        ? current.map((item) => (item.id === session.id ? session : item))
+        : [...current, session]
+    ));
+    setDailyPriorities((current) => [
+      ...current.filter((item) => item.priorityDate !== todayKey),
+      ...priorities,
+    ]);
+    setMorningRitualDraft(null);
+  }
 
   async function addTask(title) {
     const task = createTask(title, activeNav, todayKey);
@@ -537,8 +596,13 @@ function App() {
         }
       });
     }
-    await Promise.all(Array.from(ids).map(removeTask));
+    const linkedPriorities = dailyPriorities.filter((item) => ids.has(item.taskId));
+    await Promise.all([
+      ...Array.from(ids).map(removeTask),
+      ...linkedPriorities.map((item) => removeDailyPriority(item.id)),
+    ]);
     setTasks((current) => current.filter((item) => !ids.has(item.id)));
+    setDailyPriorities((current) => current.filter((item) => !ids.has(item.taskId)));
     if (returnTaskDraft && !ids.has(returnTaskDraft.id)) {
       returnToParentTask();
       return;
@@ -696,11 +760,11 @@ function App() {
                 </time>
               </div>
             </div>
-            <button className="ritual-button" type="button">
+            <button className="ritual-button" onClick={openMorningRitual} type="button">
               <Icon name="sun" />
               <span>
-                Спланировать день
-                <small>3–5 минут</small>
+                {todayMorningSession?.status === 'completed' ? 'Изменить план дня' : 'Спланировать день'}
+                <small>{todayMorningSession?.status === 'completed' ? 'План сохранён' : '3–5 минут'}</small>
               </span>
             </button>
             </section>
@@ -772,9 +836,8 @@ function App() {
             </div>
 
             <aside className="secondary-column">
-              <button className="new-task-button today-create-task" onClick={() => createDetailedTask()} type="button">
-                <span>Добавить задачу</span>
-                <i aria-hidden="true">+</i>
+              <button className="new-task-button" onClick={() => createDetailedTask()} type="button">
+                Добавить задачу
               </button>
               <TodayHabitList
                 habits={habits}
@@ -903,6 +966,19 @@ function App() {
           onClose={closeImportantDateEditor}
           onDelete={deleteImportantDate}
           onSave={updateImportantDate}
+        />
+      )}
+      {morningRitualDraft && (
+        <MorningRitual
+          date={todayKey}
+          session={morningRitualDraft}
+          dailyPriorities={dailyPriorities}
+          tasks={tasks}
+          projects={projects}
+          importantDates={importantDates}
+          onAddTask={addTask}
+          onClose={() => setMorningRitualDraft(null)}
+          onComplete={completeMorningRitual}
         />
       )}
     </div>
