@@ -19,6 +19,7 @@ function formatRitualDate(dateKey) {
 
 function calendarEntryLabel(type) {
   if (type === 'important') return 'Важная дата';
+  if (type === 'reminder') return 'Напоминание';
   if (type === 'deadline') return 'Срок задачи';
   return 'Целевая дата проекта';
 }
@@ -55,7 +56,7 @@ export default function MorningRitual({
   dailyPriorities,
   tasks,
   projects,
-  importantDates,
+  calendarItems,
   onAddTask,
   onClose,
   onComplete,
@@ -72,7 +73,7 @@ export default function MorningRitual({
   const ritualTaskOptions = tasks.filter((task) => (
     priorityTaskIds.includes(task.id) || dayTasks.some((item) => item.id === task.id)
   ));
-  const calendarEntries = getCalendarEntries(tasks, projects, importantDates, date)
+  const calendarEntries = getCalendarEntries(tasks, projects, calendarItems, date)
     .filter((entry) => entry.type !== 'task' && !entry.completed);
 
   useEffect(() => {
@@ -147,7 +148,7 @@ export default function MorningRitual({
                     <i aria-hidden="true" />
                     <span>
                       <small>{calendarEntryLabel(entry.type)}</small>
-                      <strong>{entry.title}</strong>
+                      <strong>{entry.time ? `${entry.time} · ${entry.title}` : entry.title}</strong>
                     </span>
                   </div>
                 ))}

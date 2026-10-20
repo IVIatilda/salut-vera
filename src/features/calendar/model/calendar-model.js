@@ -2,6 +2,8 @@ import { getHabitDaySummary, getScheduledHabitsForDate } from '../../habits/mode
 import { isTaskCompleted } from '../../tasks/model/task-model.js';
 
 export const CALENDAR_WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+export const CALENDAR_ITEM_KINDS = ['important', 'reminder'];
+export const CALENDAR_RECURRENCES = ['none', 'daily', 'weekly', 'monthly', 'yearly', 'interval', 'weekdays'];
 
 export function calendarDateKey(date) {
   const year = date.getFullYear();
@@ -56,43 +58,114 @@ export function formatSelectedDate(value) {
   }).format(parseCalendarDate(value));
 }
 
-export function normalizeImportantDate(item) {
+export function normalizeCalendarItem(item = {}) {
   const now = new Date().toISOString();
+  const recurrence = CALENDAR_RECURRENCES.includes(item.recurrence)
+    ? item.recurrence
+    : item.repeatsYearly ? 'yearly' : 'none';
+  const weekdays = Array.isArray(item.weekdays)
+    ? [...new Set(item.weekdays.map(Number).filter((day) => day >= 1 && day <= 7))].sort()
+    : [];
+
   return {
     title: '',
-    date: '',
+    kind: 'important',
+    startDate: '',
+    endDate: '',
+    time: '',
     note: '',
-    repeatsYearly: false,
+    recurrence: 'none',
+    intervalDays: 2,
+    weekdays: [],
     createdAt: now,
     updatedAt: now,
     ...item,
     title: item.title || '',
-    date: item.date || '',
+    kind: CALENDAR_ITEM_KINDS.includes(item.kind) ? item.kind : 'important',
+    startDate: item.startDate || item.date || '',
+    endDate: item.endDate || '',
+    time: /^([01]\d|2[0-3]):[0-5]\d$/.test(item.time || '') ? item.time : '',
     note: item.note || '',
-    repeatsYearly: Boolean(item.repeatsYearly),
+    recurrence,
+    intervalDays: Math.max(1, Math.floor(Number(item.intervalDays) || 1)),
+    weekdays,
   };
 }
 
-export function createImportantDate(date = calendarDateKey(new Date())) {
+export function normalizeImportantDate(item) {
+  return normalizeCalendarItem(item);
+}
+
+export function createCalendarItem(date = calendarDateKey(new Date()), kind = 'important') {
   const now = new Date().toISOString();
-  return normalizeImportantDate({
+  return normalizeCalendarItem({
     id: crypto.randomUUID(),
-    date,
+    kind,
+    startDate: date,
     createdAt: now,
     updatedAt: now,
   });
 }
 
-export function importantDateOccursOn(item, dateKey) {
-  if (!item.date || !dateKey) return false;
-  return item.repeatsYearly ? item.date.slice(5) === dateKey.slice(5) : item.date === dateKey;
+export function createImportantDate(date = calendarDateKey(new Date())) {
+  return createCalendarItem(date, 'important');
 }
 
-export function getCalendarEntries(tasks, projects, importantDates, dateKey) {
+function localDayNumber(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
+function weekdayNumber(dateKey) {
+  const day = parseCalendarDate(dateKey).getDay();
+  return day === 0 ? 7 : day;
+}
+
+export function calendarItemOccursOn(sourceItem, dateKey) {
+  const item = normalizeCalendarItem(sourceItem);
+  if (!item.startDate || !dateKey || dateKey < item.startDate) return false;
+  if (item.endDate && dateKey > item.endDate) return false;
+
+  const dayDistance = localDayNumber(dateKey) - localDayNumber(item.startDate);
+  if (item.recurrence === 'daily') return true;
+  if (item.recurrence === 'weekly') return dayDistance % 7 === 0;
+  if (item.recurrence === 'monthly') return dateKey.slice(8) === item.startDate.slice(8);
+  if (item.recurrence === 'yearly') return dateKey.slice(5) === item.startDate.slice(5);
+  if (item.recurrence === 'interval') return dayDistance % item.intervalDays === 0;
+  if (item.recurrence === 'weekdays') return item.weekdays.includes(weekdayNumber(dateKey));
+  return item.startDate === dateKey;
+}
+
+export function importantDateOccursOn(item, dateKey) {
+  return calendarItemOccursOn(item, dateKey);
+}
+
+export function describeCalendarItemSchedule(sourceItem) {
+  const item = normalizeCalendarItem(sourceItem);
+  if (item.recurrence === 'daily') return 'Каждый день';
+  if (item.recurrence === 'weekly') return 'Каждую неделю';
+  if (item.recurrence === 'monthly') return 'Каждый месяц';
+  if (item.recurrence === 'yearly') return 'Каждый год';
+  if (item.recurrence === 'interval') return `Каждые ${item.intervalDays} дн.`;
+  if (item.recurrence === 'weekdays') {
+    return item.weekdays.map((day) => CALENDAR_WEEKDAYS[day - 1]).join(', ') || 'Дни не выбраны';
+  }
+  return 'Без повтора';
+}
+
+export function getCalendarEntries(tasks, projects, calendarItems, dateKey) {
   const entries = [];
 
-  importantDates.filter((item) => importantDateOccursOn(item, dateKey)).forEach((item) => {
-    entries.push({ id: `important:${item.id}`, sourceId: item.id, type: 'important', title: item.title, item });
+  calendarItems.filter((item) => calendarItemOccursOn(item, dateKey)).forEach((sourceItem) => {
+    const item = normalizeCalendarItem(sourceItem);
+    entries.push({
+      id: `${item.kind}:${item.id}:${dateKey}`,
+      sourceId: item.id,
+      type: item.kind,
+      title: item.title,
+      time: item.time,
+      item,
+    });
   });
 
   tasks.filter((task) => task.status !== 'cancelled').forEach((task) => {
@@ -122,8 +195,12 @@ export function getCalendarEntries(tasks, projects, importantDates, dateKey) {
     entries.push({ id: `project:${project.id}`, sourceId: project.id, type: 'project', title: project.title, item: project });
   });
 
-  const order = { important: 0, deadline: 1, project: 2, task: 3 };
-  return entries.sort((first, second) => order[first.type] - order[second.type]);
+  const order = { important: 0, reminder: 1, deadline: 2, project: 3, task: 4 };
+  return entries.sort((first, second) => {
+    const typeOrder = order[first.type] - order[second.type];
+    if (typeOrder !== 0) return typeOrder;
+    return (first.time || '99:99').localeCompare(second.time || '99:99');
+  });
 }
 
 export function getCalendarHabitItems(habits, logs, dateKey, todayKey) {

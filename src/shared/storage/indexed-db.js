@@ -173,17 +173,19 @@ export function removeHabitLog(logId) {
   return runTransaction(HABIT_LOG_STORE, 'readwrite', (store) => store.delete(logId));
 }
 
-export function listImportantDates() {
+export function listCalendarItems() {
   return runTransaction(IMPORTANT_DATE_STORE, 'readonly', (store) => store.getAll()).then((items) =>
-    items.sort((first, second) => first.date.localeCompare(second.date)),
+    items.sort((first, second) => (
+      (first.startDate || first.date || '').localeCompare(second.startDate || second.date || '')
+    )),
   );
 }
 
-export function saveImportantDate(item) {
+export function saveCalendarItem(item) {
   return runTransaction(IMPORTANT_DATE_STORE, 'readwrite', (store) => store.put(item));
 }
 
-export function removeImportantDate(itemId) {
+export function removeCalendarItem(itemId) {
   return runTransaction(IMPORTANT_DATE_STORE, 'readwrite', (store) => store.delete(itemId));
 }
 

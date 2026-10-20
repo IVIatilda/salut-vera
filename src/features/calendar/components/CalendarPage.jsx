@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   CALENDAR_WEEKDAYS,
   calendarDateKey,
+  describeCalendarItemSchedule,
   describeHabitCalendarState,
   formatCalendarMonth,
   formatSelectedDate,
@@ -17,6 +18,7 @@ const MAX_HABIT_DOTS = 5;
 
 function entryLabel(type) {
   if (type === 'important') return 'Важная дата';
+  if (type === 'reminder') return 'Напоминание';
   if (type === 'deadline') return 'Срок задачи';
   if (type === 'project') return 'Целевая дата проекта';
   return 'План';
@@ -26,7 +28,7 @@ function DayEntry({ entry }) {
   return (
     <span className={`calendar-entry ${entry.type} ${entry.completed ? 'completed' : ''}`}>
       <i aria-hidden="true" />
-      <b>{entry.title}</b>
+      <b>{entry.time ? `${entry.time} · ${entry.title}` : entry.title}</b>
     </span>
   );
 }
@@ -36,10 +38,10 @@ export default function CalendarPage({
   projects,
   habits,
   habitLogs,
-  importantDates,
+  calendarItems,
   today,
-  onAddImportantDate,
-  onOpenImportantDate,
+  onAddCalendarItem,
+  onOpenCalendarItem,
   onOpenProject,
   onOpenTask,
   onToggleTask,
@@ -47,7 +49,7 @@ export default function CalendarPage({
   const [visibleMonth, setVisibleMonth] = useState(() => getCalendarMonth(today));
   const [selectedDate, setSelectedDate] = useState(today);
   const monthDays = useMemo(() => getCalendarMonthDays(visibleMonth), [visibleMonth]);
-  const selectedEntries = getCalendarEntries(tasks, projects, importantDates, selectedDate);
+  const selectedEntries = getCalendarEntries(tasks, projects, calendarItems, selectedDate);
   const selectedHabits = getCalendarHabitItems(habits, habitLogs, selectedDate, today);
 
   function chooseDate(day) {
@@ -67,7 +69,7 @@ export default function CalendarPage({
   }
 
   function openEntry(entry) {
-    if (entry.type === 'important') onOpenImportantDate(entry.item);
+    if (entry.type === 'important' || entry.type === 'reminder') onOpenCalendarItem(entry.item);
     else if (entry.type === 'project') onOpenProject(entry.item);
     else onOpenTask(entry.item);
   }
@@ -84,8 +86,8 @@ export default function CalendarPage({
             <button onClick={returnToToday} type="button">Сегодня</button>
             <button onClick={() => moveMonth(1)} type="button" aria-label="Следующий месяц">›</button>
           </div>
-          <button className="new-task-button" onClick={() => onAddImportantDate(selectedDate)} type="button">
-            Добавить важную дату
+          <button className="new-task-button" onClick={() => onAddCalendarItem(selectedDate)} type="button">
+            Добавить запись
           </button>
         </div>
       </header>
@@ -96,7 +98,7 @@ export default function CalendarPage({
         </div>
         <div className="calendar-grid">
           {monthDays.map((day) => {
-            const entries = getCalendarEntries(tasks, projects, importantDates, day.dateKey);
+            const entries = getCalendarEntries(tasks, projects, calendarItems, day.dateKey);
             const habitItems = getCalendarHabitItems(habits, habitLogs, day.dateKey, today);
             const hiddenCount = Math.max(0, entries.length - MAX_CELL_ENTRIES);
             const isToday = day.dateKey === today;
@@ -141,9 +143,14 @@ export default function CalendarPage({
               <span className="eyebrow">Выбранный день</span>
               <h2 id="calendar-selected-day">{formatSelectedDate(selectedDate)}</h2>
             </div>
-            <button className="text-button" onClick={() => onAddImportantDate(selectedDate)} type="button">
-              + Важная дата
-            </button>
+            <div className="calendar-detail-actions">
+              <button className="text-button" onClick={() => onAddCalendarItem(selectedDate, 'important')} type="button">
+                + Важная дата
+              </button>
+              <button className="text-button" onClick={() => onAddCalendarItem(selectedDate, 'reminder')} type="button">
+                + Напоминание
+              </button>
+            </div>
           </div>
 
           {selectedEntries.length === 0 ? (
@@ -170,8 +177,14 @@ export default function CalendarPage({
                     )}
                     <button className="calendar-detail-open" onClick={() => openEntry(entry)} type="button">
                       <span>
-                        <i>{entry.completed ? 'Выполнено' : entryLabel(entry.type)}</i>
+                        <i>
+                          {entry.completed ? 'Выполнено' : entryLabel(entry.type)}
+                          {entry.time ? ` · ${entry.time}` : ''}
+                        </i>
                         <strong>{entry.title}</strong>
+                        {(entry.type === 'important' || entry.type === 'reminder') && (
+                          <small>{describeCalendarItemSchedule(entry.item)}</small>
+                        )}
                       </span>
                       <b aria-hidden="true">→</b>
                     </button>

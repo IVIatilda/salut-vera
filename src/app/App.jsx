@@ -5,12 +5,12 @@ import {
   listTasks,
   listHabits,
   listHabitLogs,
-  listImportantDates,
+  listCalendarItems,
   listRitualSessions,
   listDailyPriorities,
   removeHabit,
   removeHabitLog,
-  removeImportantDate,
+  removeCalendarItem,
   removeDailyPriority,
   removeProject,
   removeRole,
@@ -21,15 +21,15 @@ import {
   saveTimeEntry,
   saveHabit,
   saveHabitLog,
-  saveImportantDate,
+  saveCalendarItem,
   saveRitualSession,
   saveDailyPriority,
 } from '../shared/storage/indexed-db.js';
 import CalendarPage from '../features/calendar/components/CalendarPage.jsx';
-import ImportantDateEditor from '../features/calendar/components/ImportantDateEditor.jsx';
+import CalendarItemEditor from '../features/calendar/components/CalendarItemEditor.jsx';
 import {
-  createImportantDate,
-  normalizeImportantDate,
+  createCalendarItem,
+  normalizeCalendarItem,
 } from '../features/calendar/model/calendar-model.js';
 import HabitEditor from '../features/habits/components/HabitEditor.jsx';
 import HabitList from '../features/habits/components/HabitList.jsx';
@@ -152,7 +152,7 @@ function App() {
   const [roles, setRoles] = useState([]);
   const [habits, setHabits] = useState([]);
   const [habitLogs, setHabitLogs] = useState([]);
-  const [importantDates, setImportantDates] = useState([]);
+  const [calendarItems, setCalendarItems] = useState([]);
   const [ritualSessions, setRitualSessions] = useState([]);
   const [dailyPriorities, setDailyPriorities] = useState([]);
   const [morningRitualDraft, setMorningRitualDraft] = useState(null);
@@ -169,8 +169,8 @@ function App() {
   const [newRoleDraft, setNewRoleDraft] = useState(null);
   const [editingHabitId, setEditingHabitId] = useState(null);
   const [newHabitDraft, setNewHabitDraft] = useState(null);
-  const [editingImportantDateId, setEditingImportantDateId] = useState(null);
-  const [newImportantDateDraft, setNewImportantDateDraft] = useState(null);
+  const [editingCalendarItemId, setEditingCalendarItemId] = useState(null);
+  const [newCalendarItemDraft, setNewCalendarItemDraft] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -179,7 +179,7 @@ function App() {
       listRoles(),
       listHabits(),
       listHabitLogs(),
-      listImportantDates(),
+      listCalendarItems(),
       listRitualSessions(),
       listDailyPriorities(),
     ])
@@ -189,7 +189,7 @@ function App() {
         storedRoles,
         storedHabits,
         storedHabitLogs,
-        storedImportantDates,
+        storedCalendarItems,
         storedRitualSessions,
         storedDailyPriorities,
       ]) => {
@@ -256,7 +256,7 @@ function App() {
         setRoles(allRoles);
         setHabits(storedHabits.map(normalizeHabit));
         setHabitLogs(storedHabitLogs.map(normalizeHabitLog));
-        setImportantDates(storedImportantDates.map(normalizeImportantDate));
+        setCalendarItems(storedCalendarItems.map(normalizeCalendarItem));
         setRitualSessions(storedRitualSessions.map(normalizeRitualSession));
         setDailyPriorities(storedDailyPriorities);
       })
@@ -302,8 +302,8 @@ function App() {
   const editingProject = newProjectDraft || projects.find((project) => project.id === editingProjectId);
   const editingRole = newRoleDraft || roles.find((role) => role.id === editingRoleId);
   const editingHabit = newHabitDraft || habits.find((habit) => habit.id === editingHabitId);
-  const editingImportantDate = newImportantDateDraft
-    || importantDates.find((item) => item.id === editingImportantDateId);
+  const editingCalendarItem = newCalendarItemDraft
+    || calendarItems.find((item) => item.id === editingCalendarItemId);
   const todayMorningSession = ritualSessions.find((session) => (
     session.type === 'morning' && session.sessionDate === todayKey
   ));
@@ -418,35 +418,35 @@ function App() {
     setEditingHabitId(null);
   }
 
-  function createNewImportantDate(date = todayKey) {
-    setEditingImportantDateId(null);
-    setNewImportantDateDraft(createImportantDate(date));
+  function createNewCalendarItem(date = todayKey, kind = 'important') {
+    setEditingCalendarItemId(null);
+    setNewCalendarItemDraft(createCalendarItem(date, kind));
   }
 
-  function openImportantDateEditor(item) {
-    setNewImportantDateDraft(null);
-    setEditingImportantDateId(item.id);
+  function openCalendarItemEditor(item) {
+    setNewCalendarItemDraft(null);
+    setEditingCalendarItemId(item.id);
   }
 
-  function closeImportantDateEditor() {
-    setNewImportantDateDraft(null);
-    setEditingImportantDateId(null);
+  function closeCalendarItemEditor() {
+    setNewCalendarItemDraft(null);
+    setEditingCalendarItemId(null);
   }
 
-  async function updateImportantDate(item) {
-    await saveImportantDate(item);
-    setImportantDates((current) => (
+  async function updateCalendarItem(item) {
+    await saveCalendarItem(item);
+    setCalendarItems((current) => (
       current.some((currentItem) => currentItem.id === item.id)
         ? current.map((currentItem) => (currentItem.id === item.id ? item : currentItem))
         : [...current, item]
     ));
-    closeImportantDateEditor();
+    closeCalendarItemEditor();
   }
 
-  async function deleteImportantDate(item) {
-    await removeImportantDate(item.id);
-    setImportantDates((current) => current.filter((currentItem) => currentItem.id !== item.id));
-    closeImportantDateEditor();
+  async function deleteCalendarItem(item) {
+    await removeCalendarItem(item.id);
+    setCalendarItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
+    closeCalendarItemEditor();
   }
 
   async function updateHabit(habit) {
@@ -871,10 +871,10 @@ function App() {
               projects={projects}
               habits={habits}
               habitLogs={habitLogs}
-              importantDates={importantDates}
+              calendarItems={calendarItems}
               today={todayKey}
-              onAddImportantDate={createNewImportantDate}
-              onOpenImportantDate={openImportantDateEditor}
+              onAddCalendarItem={createNewCalendarItem}
+              onOpenCalendarItem={openCalendarItemEditor}
               onOpenProject={openProjectEditor}
               onOpenTask={openTaskEditor}
               onToggleTask={toggleTask}
@@ -959,13 +959,13 @@ function App() {
           onSave={updateHabit}
         />
       )}
-      {editingImportantDate && (
-        <ImportantDateEditor
-          item={editingImportantDate}
-          isNew={Boolean(newImportantDateDraft)}
-          onClose={closeImportantDateEditor}
-          onDelete={deleteImportantDate}
-          onSave={updateImportantDate}
+      {editingCalendarItem && (
+        <CalendarItemEditor
+          item={editingCalendarItem}
+          isNew={Boolean(newCalendarItemDraft)}
+          onClose={closeCalendarItemEditor}
+          onDelete={deleteCalendarItem}
+          onSave={updateCalendarItem}
         />
       )}
       {morningRitualDraft && (
@@ -975,7 +975,7 @@ function App() {
           dailyPriorities={dailyPriorities}
           tasks={tasks}
           projects={projects}
-          importantDates={importantDates}
+          calendarItems={calendarItems}
           onAddTask={addTask}
           onClose={() => setMorningRitualDraft(null)}
           onComplete={completeMorningRitual}
