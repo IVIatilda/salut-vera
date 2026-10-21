@@ -78,8 +78,15 @@ describe('calendar model', () => {
   it('combines calendar items, task plans, deadlines and project targets', () => {
     const entries = getCalendarEntries(
       [
-        { id: 'planned', title: 'Встреча', status: 'planned', scheduledDate: '2026-10-19' },
-        { id: 'due', title: 'Отчёт', status: 'completed', completed: true, dueDate: '2026-10-19' },
+        {
+          id: 'planned',
+          title: 'Встреча',
+          status: 'planned',
+          scheduledDate: '2026-10-19',
+          isUrgent: true,
+          importance: 'high',
+        },
+        { id: 'due', title: 'Отчёт', status: 'completed', completed: true, dueDate: '2026-10-19', importance: 'normal' },
       ],
       [{ id: 'project', title: 'Запуск', status: 'active', targetDate: '2026-10-19' }],
       [
@@ -91,6 +98,14 @@ describe('calendar model', () => {
 
     expect(entries.map((entry) => entry.type)).toEqual(['important', 'reminder', 'deadline', 'project', 'task']);
     expect(entries.find((entry) => entry.type === 'deadline')?.completed).toBe(true);
+    expect(entries.find((entry) => entry.type === 'task')).toMatchObject({
+      isUrgent: true,
+      isImportant: true,
+    });
+    expect(entries.find((entry) => entry.type === 'deadline')).toMatchObject({
+      isUrgent: false,
+      isImportant: false,
+    });
   });
 
   it('keeps future habit plans separate from missing past marks', () => {
