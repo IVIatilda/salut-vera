@@ -176,6 +176,8 @@ export function getCalendarEntries(tasks, projects, calendarItems, dateKey) {
         type: 'task',
         title: task.title,
         completed: isTaskCompleted(task),
+        isUrgent: Boolean(task.isUrgent),
+        isImportant: task.importance === 'high',
         item: task,
       });
     }
@@ -186,6 +188,8 @@ export function getCalendarEntries(tasks, projects, calendarItems, dateKey) {
         type: 'deadline',
         title: task.title,
         completed: isTaskCompleted(task),
+        isUrgent: Boolean(task.isUrgent),
+        isImportant: task.importance === 'high',
         item: task,
       });
     }

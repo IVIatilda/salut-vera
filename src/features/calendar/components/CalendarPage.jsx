@@ -24,9 +24,21 @@ function entryLabel(type) {
   return 'План';
 }
 
+function taskPriorityClasses(entry) {
+  return [entry.isUrgent ? 'task-urgent' : '', entry.isImportant ? 'task-important' : '']
+    .filter(Boolean)
+    .join(' ');
+}
+
+function taskPriorityLabel(entry) {
+  return [entry.isUrgent ? 'Срочно' : '', entry.isImportant ? 'Важно' : '']
+    .filter(Boolean)
+    .join(' · ');
+}
+
 function DayEntry({ entry }) {
   return (
-    <span className={`calendar-entry ${entry.type} ${entry.completed ? 'completed' : ''}`}>
+    <span className={`calendar-entry ${entry.type} ${taskPriorityClasses(entry)} ${entry.completed ? 'completed' : ''}`}>
       <i aria-hidden="true" />
       <b>{entry.time ? `${entry.time} · ${entry.title}` : entry.title}</b>
     </span>
@@ -159,8 +171,9 @@ export default function CalendarPage({
             <div className="calendar-detail-list">
               {selectedEntries.map((entry) => {
                 const isTaskEntry = entry.type === 'task' || entry.type === 'deadline';
+                const priorityLabel = taskPriorityLabel(entry);
                 return (
-                  <article className={`calendar-detail-entry ${entry.type} ${entry.completed ? 'completed' : ''}`} key={entry.id}>
+                  <article className={`calendar-detail-entry ${entry.type} ${taskPriorityClasses(entry)} ${entry.completed ? 'completed' : ''}`} key={entry.id}>
                     {isTaskEntry ? (
                       <button
                         className={`calendar-task-toggle ${entry.completed ? 'completed' : ''}`}
@@ -180,6 +193,7 @@ export default function CalendarPage({
                         <i>
                           {entry.completed ? 'Выполнено' : entryLabel(entry.type)}
                           {entry.time ? ` · ${entry.time}` : ''}
+                          {!entry.completed && priorityLabel ? ` · ${priorityLabel}` : ''}
                         </i>
                         <strong>{entry.title}</strong>
                         {(entry.type === 'important' || entry.type === 'reminder') && (
