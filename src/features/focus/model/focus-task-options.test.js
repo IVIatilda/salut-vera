@@ -34,11 +34,27 @@ describe('focus task options', () => {
     ]);
   });
 
-  it('hides future, undated, completed and cancelled tasks', () => {
+  it('shows undated parent tasks and subtasks after dated tasks', () => {
+    const options = getFocusTaskOptions([
+      task('undated-parent'),
+      task('today', { scheduledDate: TODAY }),
+      task('undated-child', { parentTaskId: 'undated-parent' }),
+      task('overdue', { dueDate: '2026-10-19' }),
+    ], TODAY);
+
+    expect(options.map((option) => option.value)).toEqual([
+      'today',
+      'overdue',
+      'undated-parent',
+      'undated-child',
+    ]);
+  });
+
+  it('hides future, completed and cancelled tasks', () => {
     const options = getFocusTaskOptions([
       task('tomorrow', { scheduledDate: '2026-10-21' }),
       task('later', { scheduledDate: '2026-11-02' }),
-      task('undated'),
+      task('future-deadline', { dueDate: '2026-11-05' }),
       task('completed', { scheduledDate: TODAY, status: 'completed', completed: true }),
       task('cancelled', { scheduledDate: TODAY, status: 'cancelled' }),
       task('today', { scheduledDate: TODAY }),

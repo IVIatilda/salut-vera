@@ -12,15 +12,20 @@ export function getFocusTaskOptions(tasks, today = localDateKey()) {
     if (isTaskCompleted(task) || task.status === 'cancelled') return false;
     if (task.scheduledDate > today) return false;
 
-    return task.scheduledDate === today || isFocusTaskOverdue(task, today);
+    const hasNoDate = !task.scheduledDate && !task.dueDate;
+    return task.scheduledDate === today || isFocusTaskOverdue(task, today) || hasNoDate;
   });
 
   return eligibleTasks
-    .map((task, sourceIndex) => ({
-      task,
-      sourceIndex,
-      group: task.scheduledDate === today && !isFocusTaskOverdue(task, today) ? 0 : 1,
-    }))
+    .map((task, sourceIndex) => {
+      const overdue = isFocusTaskOverdue(task, today);
+      const isToday = task.scheduledDate === today && !overdue;
+      return {
+        task,
+        sourceIndex,
+        group: isToday ? 0 : overdue ? 1 : 2,
+      };
+    })
     .sort((first, second) => first.group - second.group || first.sourceIndex - second.sourceIndex)
     .map(({ task }) => ({
       value: task.id,
