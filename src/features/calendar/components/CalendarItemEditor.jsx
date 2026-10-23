@@ -158,15 +158,14 @@ export default function CalendarItemEditor({ item, isNew, onClose, onDelete, onS
 
             <OptionalField id="recurrence" label="Повторение" isOpen={expandedFields.recurrence} onToggle={toggleOptionalField}>
               <div className="calendar-item-schedule">
-                <label>
-                  <span>Повторение</span>
+                <div className="calendar-recurrence-select">
                   <CustomSelect
                     value={draft.recurrence}
                     options={RECURRENCE_OPTIONS}
                     onChange={(value) => update('recurrence', value)}
                     ariaLabel="Повторение записи"
                   />
-                </label>
+                </div>
 
                 {draft.recurrence === 'interval' && (
                   <label className="editor-field calendar-interval-field">

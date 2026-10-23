@@ -62,19 +62,6 @@ export default function HabitList({ habits, logs, roles, today, isLoading, onOpe
 
   return (
     <section className="habits-panel">
-      <div className="habit-today-summary">
-        <div>
-          <span className="eyebrow">Сегодняшний ритм</span>
-          <strong>{completedToday}<i>/</i>{todayHabits.length}</strong>
-        </div>
-        <p>
-          {todayHabits.length === 0
-            ? 'На сегодня привычек нет.'
-            : completedToday === todayHabits.length
-              ? 'Все запланированные привычки отмечены.'
-              : `Осталось отметить: ${todayHabits.length - completedToday}.`}
-        </p>
-      </div>
 
       <div className="task-filters" aria-label="Фильтры привычек">
         {FILTERS.map(([id, label]) => (

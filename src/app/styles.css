@@ -625,52 +625,6 @@ main {
   gap: 18px;
 }
 
-.habit-today-summary {
-  display: grid;
-  grid-template-columns: minmax(180px, .55fr) minmax(240px, 1fr);
-  align-items: center;
-  gap: 28px;
-  padding: 23px 26px;
-  border: 1px solid #cdd8ef;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 15% 20%, rgb(111 142 219 / 18%), transparent 36%),
-    linear-gradient(135deg, #f0f5ff 0%, #fbfcff 72%);
-}
-
-.habit-today-summary > div {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-}
-
-.habit-today-summary > div > span {
-  max-width: 76px;
-}
-
-.habit-today-summary > div > strong {
-  color: var(--ink);
-  font-family: "Arial Rounded MT Bold", "Avenir Next", sans-serif;
-  font-size: 46px;
-  line-height: 1;
-  letter-spacing: -.055em;
-}
-
-.habit-today-summary strong i {
-  padding-inline: 3px;
-  color: #8390aa;
-  font-size: 27px;
-  font-style: normal;
-}
-
-.habit-today-summary p {
-  max-width: 560px;
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
 .habit-grid {
   display: grid;
   gap: 13px;
@@ -3291,17 +3245,48 @@ main {
 
 .calendar-item-optional-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
-  gap: 9px;
+  gap: 13px 18px;
   margin-bottom: 16px;
 }
 
-.calendar-item-optional-grid > .optional-task-field.open {
-  grid-column: 1 / -1;
+.calendar-item-optional-grid > .optional-task-field {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.calendar-item-optional-grid .optional-task-field-toggle {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.calendar-item-optional-grid .optional-task-field-toggle:hover {
+  color: var(--ink);
+  background: transparent;
+}
+
+.calendar-item-optional-grid .optional-task-field-toggle i {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  font-size: 16px;
+}
+
+.calendar-item-optional-grid .optional-task-field.open .optional-task-field-toggle {
+  padding-bottom: 7px;
+}
+
+.calendar-item-optional-grid .optional-task-field-content {
+  padding: 0;
 }
 
 .calendar-item-optional-grid .calendar-item-schedule {
+  grid-template-columns: 1fr;
+  gap: 12px;
   margin-bottom: 0;
 }
 
